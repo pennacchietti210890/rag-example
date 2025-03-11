@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "rag-financial-reports"
+name = "rag-example"
 version = "0.1.0"
-description = "A RAG-based system for analyzing financial reports"
+description = "A RAG-system to chat with your documents"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [
