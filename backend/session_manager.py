@@ -7,6 +7,7 @@ from .rag.rag import DocumentManager
 
 logger = logging.getLogger(__name__)
 
+
 class SessionManager:
     """Manages document sessions"""
 

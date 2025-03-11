@@ -6,10 +6,7 @@ import streamlit as st
 
 # Set page config at the very beginning
 st.set_page_config(
-    page_title="Doc QA",
-    page_icon="📄",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Doc QA", page_icon="📄", layout="wide", initial_sidebar_state="expanded"
 )
 
 # Custom CSS
@@ -67,7 +64,11 @@ if uploaded_file and (st.session_state.uploaded_file_name != uploaded_file.name)
     with st.spinner("Uploading and processing file..."):
         try:
             files = {
-                "file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")
+                "file": (
+                    uploaded_file.name,
+                    uploaded_file.getvalue(),
+                    "application/pdf",
+                )
             }
             response = requests.post("http://localhost:8000/upload/", files=files)
 

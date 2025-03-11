@@ -27,6 +27,7 @@ from backend.session_manager import SessionManager
 
 from backend.llm.hf import load_local_model, ModelError
 
+
 # Configure logging
 def setup_logging():
     """Configure logging with both file and console handlers"""
@@ -127,7 +128,7 @@ async def get_document_manager_for_query(
 
 
 # Load environment variables from .env file
-env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 load_dotenv(env_path)
 app = FastAPI()
 
@@ -227,7 +228,9 @@ async def query_doc(
 
     try:
         # Retrieve relevant chunks using document manager
-        retrieved_chunks = document_manager.search_chunks(query_request.query, embedding_model)
+        retrieved_chunks = document_manager.search_chunks(
+            query_request.query, embedding_model
+        )
 
         if not retrieved_chunks:
             logger.warning("No relevant chunks found for query")
@@ -338,6 +341,7 @@ def main():
     """Entry point for running the FastAPI application"""
     logger.info("Starting FastAPI application")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 if __name__ == "__main__":
     main()

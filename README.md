@@ -17,8 +17,8 @@ A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/rag-financial-reports.git
-cd rag-financial-reports
+git clone https://github.com/yourusername/rag-example.git
+cd rag-example
 ```
 
 2. Create and activate a virtual environment:
