@@ -1,6 +1,6 @@
 import logging
-
 from builtins import Exception
+
 import torch
 from ctransformers import AutoModelForCausalLM
 from transformers import AutoTokenizer, pipeline

@@ -2,11 +2,12 @@ import logging
 import os
 import textwrap
 import uuid
+from builtins import Exception
 from enum import Enum
 from logging.handlers import RotatingFileHandler
 from threading import Lock
 from typing import Dict, List, Optional
-from builtins import Exception
+
 import faiss
 import fitz  # PyMuPDF
 import numpy as np
@@ -22,10 +23,10 @@ from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, pipeline
 
+from backend.llm.hf import ModelError, load_local_model
 from backend.rag.rag import DocumentManager, DocumentProcessingError
 from backend.session_manager import SessionManager
-
-from backend.llm.hf import load_local_model, ModelError
+from backend.llm.groq import generate_response, APIError
 
 
 # Configure logging
@@ -82,13 +83,6 @@ class QueryRequest(BaseModel):
         ..., description="The type of model to use for generating the response"
     )
     session_id: str = Field(..., description="The session ID from the upload response")
-
-
-# Custom exceptions
-class APIError(Exception):
-    """Raised when there's an error with external API calls"""
-
-    pass
 
 
 # Initialize session manager
@@ -249,52 +243,14 @@ async def query_doc(
         prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n{context}\n\nUser Question: {query_request.query}\n\n Answer:"
 
         if query_request.model_type == ModelType.GROQ:
-            try:
-                logger.info("Using Groq API for response generation")
-                # Query Groq API
-                response = requests.post(
-                    GROQ_API_URL,
-                    headers={
-                        "Authorization": f"Bearer {GROQ_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": MODEL_NAME,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are an AI assistant specialized in analyzing financial reports.",
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        "max_tokens": 200,
-                    },
-                    timeout=30,  # Add timeout
-                )
-
-                if response.status_code == 200:
-                    answer = (
-                        response.json()
-                        .get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content", "No answer found.")
-                    )
-                    logger.info("Successfully received response from Groq API")
-                    return {"answer": answer.strip()}
-                else:
-                    logger.error(
-                        f"Groq API error: {response.status_code} - {response.text}"
-                    )
-                    raise APIError(
-                        f"Groq API returned status code {response.status_code}: {response.text}"
-                    )
-
-            except requests.Timeout:
-                logger.error("Groq API request timed out")
-                raise APIError("Request to Groq API timed out")
-            except requests.RequestException as e:
-                logger.error(f"Groq API request failed: {str(e)}")
-                raise APIError(f"Error calling Groq API: {str(e)}")
+            response = generate_response(
+                prompt=prompt,
+                groq_api_key=GROQ_API_KEY,
+                groq_api_url=GROQ_API_URL,
+                model_name=MODEL_NAME,
+                sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
+            )
+            return response
 
         elif query_request.model_type == ModelType.LOCAL:
             try:
