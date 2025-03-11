@@ -1,6 +1,6 @@
-# RAG Financial Reports
+# RAG Example
 
-A Retrieval-Augmented Generation (RAG) system for analyzing financial reports. This system allows users to upload financial documents and ask questions about their contents using either a local Llama model or the Groq API.
+A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This system allows users to upload a pdf document or report and ask questions about their contents using either a local Llama model or the Groq API.
 
 ## Features
 
@@ -8,8 +8,8 @@ A Retrieval-Augmented Generation (RAG) system for analyzing financial reports. T
 - Document chunking and embedding generation
 - Semantic search using FAISS
 - Question answering using either:
-  - Local Llama 3B model
-  - Groq API (Llama 70B)
+  - Local Llama 3.2 - 3B model
+  - Groq API (Llama 3 - 70B)
 - Session management for multiple documents
 - Thread-safe operations
 
@@ -59,7 +59,7 @@ streamlit run app.py
 ## Project Structure
 
 ```
-rag-financial-reports/
+rag-example/
 ├── backend/
 │   ├── __init__.py
 │   ├── main.py
