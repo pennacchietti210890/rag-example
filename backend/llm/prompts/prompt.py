@@ -1,0 +1,1 @@
+prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n{context}\n\nUser Question: {query_request.query}\n\n Answer:"

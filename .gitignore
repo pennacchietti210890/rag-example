@@ -1,0 +1,10 @@
+.env
+models/
+data/
+*.log
+*.pdf
+*.txt
+*.json
+*.csv
+*.jsonl
+*.jsonl.gz

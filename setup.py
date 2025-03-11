@@ -1,0 +1,38 @@
+from setuptools import find_packages, setup
+
+setup(
+    name="rag-financial-reports",
+    version="0.1.0",
+    packages=find_packages(),
+    install_requires=[
+        "fastapi",
+        "uvicorn",
+        "llama-cpp-python",
+        "pydantic",
+        "PyMuPDF",
+        "faiss-cpu",
+        "sentence-transformers",
+        "requests",
+        "ctransformers",
+        "torch",
+        "transformers",
+        "python-dotenv",
+    ],
+    python_requires=">=3.8",
+    author="Your Name",
+    author_email="your.email@example.com",
+    description="A RAG-based system for analyzing financial reports",
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+    url="https://github.com/yourusername/rag-financial-reports",
+    classifiers=[
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+    ],
+) 
