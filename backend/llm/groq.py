@@ -18,6 +18,8 @@ def generate_response(
     groq_api_url: str,
     model_name: str,
     sys_prompt: str,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
     max_tokens: int = 200,
 ) -> Dict[str, str]:
     try:

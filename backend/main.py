@@ -83,13 +83,21 @@ class QueryRequest(BaseModel):
         ..., description="The type of model to use for generating the response"
     )
     session_id: str = Field(..., description="The session ID from the upload response")
+    # LLM parameters
+    temperature: float = Field(default=0.7, ge=0.0, le=1.0, description="Controls randomness in the output. Higher values make the output more random, lower values make it more deterministic.")
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Controls diversity via nucleus sampling. Lower values make the output more focused.")
+    max_tokens: int = Field(default=200, ge=1, le=2000, description="Maximum number of tokens to generate in the response.")
+    # RAG parameters
+    chunk_size: int = Field(default=500, ge=100, le=2000, description="Size of text chunks for document processing")
+    chunk_overlap: int = Field(default=50, ge=0, le=200, description="Number of overlapping tokens between chunks")
+    num_chunks: int = Field(default=3, ge=1, le=10, description="Number of most relevant chunks to retrieve")
 
 
 # Initialize session manager
 session_manager = SessionManager()
 
 
-async def get_document_manager(session_id: str) -> DocumentManager:
+async def get_document_manager(session_id: str, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3) -> DocumentManager:
     """Dependency function to get or create a document manager for the current session"""
     logger.info(f"Received request with session_id: {session_id}")
 
@@ -102,23 +110,47 @@ async def get_document_manager(session_id: str) -> DocumentManager:
         logger.info(
             f"No document manager found for session {session_id}, creating new one"
         )
-        document_manager = DocumentManager()
+        document_manager = DocumentManager(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            num_chunks=num_chunks,
+        )
         session_manager._sessions[session_id] = document_manager
+    else:
+        # Update existing document manager parameters
+        document_manager.chunk_size = chunk_size
+        document_manager.chunk_overlap = chunk_overlap
+        document_manager.num_chunks = num_chunks
 
     logger.info(f"Document manager initialized: {document_manager.is_initialized}")
     return document_manager
 
 
-async def get_document_manager_dep(session_id: Optional[str] = None) -> DocumentManager:
+async def get_document_manager_dep(
+    session_id: Optional[str] = None,
+    chunk_size: int = 500,
+    chunk_overlap: int = 50,
+    num_chunks: int = 3,
+) -> DocumentManager:
     """Dependency wrapper for get_document_manager"""
-    return await get_document_manager(session_id)
+    return await get_document_manager(
+        session_id,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        num_chunks=num_chunks,
+    )
 
 
 async def get_document_manager_for_query(
     query_request: QueryRequest,
 ) -> DocumentManager:
     """Dependency function to get document manager for query endpoint"""
-    return await get_document_manager(query_request.session_id)
+    return await get_document_manager(
+        query_request.session_id,
+        chunk_size=query_request.chunk_size,
+        chunk_overlap=query_request.chunk_overlap,
+        num_chunks=query_request.num_chunks,
+    )
 
 
 # Load environment variables from .env file
@@ -152,6 +184,9 @@ if not all([GROQ_API_URL, GROQ_API_KEY, MODEL_NAME]):
 @app.post("/upload/")
 async def upload_file(
     file: UploadFile = File(...),
+    chunk_size: int = 500,
+    chunk_overlap: int = 50,
+    num_chunks: int = 3,
     document_manager: DocumentManager = Depends(get_document_manager_dep),
 ):
     logger.info(f"Processing upload request for file: {file.filename}")
@@ -171,6 +206,11 @@ async def upload_file(
         if not text.strip():
             logger.warning("Empty PDF content detected")
             raise DocumentProcessingError("No text content found in the PDF")
+
+        # Update document manager parameters
+        document_manager.chunk_size = chunk_size
+        document_manager.chunk_overlap = chunk_overlap
+        document_manager.num_chunks = num_chunks
 
         # Process document using document manager
         result = document_manager.process_document(text, embedding_model)
@@ -249,6 +289,9 @@ async def query_doc(
                 groq_api_url=GROQ_API_URL,
                 model_name=MODEL_NAME,
                 sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
+                temperature=query_request.temperature,
+                top_p=query_request.top_p,
+                max_tokens=query_request.max_tokens,
             )
             return response
 
@@ -258,10 +301,10 @@ async def query_doc(
                 llama_pipe, tokenizer = load_local_model()
                 response = llama_pipe(
                     prompt,
-                    max_new_tokens=200,
+                    max_new_tokens=query_request.max_tokens,
                     return_full_text=False,
-                    temperature=0.7,
-                    top_p=0.9,
+                    temperature=query_request.temperature,
+                    top_p=query_request.top_p,
                     eos_token_id=tokenizer.eos_token_id,
                 )[0]["generated_text"]
                 logger.info("Successfully generated response with local model")
