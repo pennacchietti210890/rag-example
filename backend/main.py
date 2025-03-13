@@ -26,7 +26,7 @@ from transformers import AutoTokenizer, pipeline
 from backend.llm.hf import ModelError, load_local_model
 from backend.rag.rag import DocumentManager, DocumentProcessingError
 from backend.session_manager import SessionManager
-from backend.llm.groq import generate_response, APIError
+from backend.llm.groq import generate_response, APIError, get_available_models
 
 
 # Configure logging
@@ -81,6 +81,10 @@ class QueryRequest(BaseModel):
     )
     model_type: ModelType = Field(
         ..., description="The type of model to use for generating the response"
+    )
+    model_name: str = Field(
+        default="llama3-70b-8192",
+        description="The specific model to use (for Groq models)"
     )
     session_id: str = Field(..., description="The session ID from the upload response")
     # LLM parameters
@@ -287,7 +291,7 @@ async def query_doc(
                 prompt=prompt,
                 groq_api_key=GROQ_API_KEY,
                 groq_api_url=GROQ_API_URL,
-                model_name=MODEL_NAME,
+                model_name=query_request.model_name,
                 sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
                 temperature=query_request.temperature,
                 top_p=query_request.top_p,
@@ -333,6 +337,20 @@ async def query_doc(
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+@app.get("/models/")
+async def get_models():
+    """Get available models from Groq"""
+    try:
+        models = get_available_models(GROQ_API_KEY, "https://api.groq.com/openai")
+        return {"models": models}
+    except APIError as e:
+        logger.error(f"Failed to fetch Groq models: {str(e)}")
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error fetching models: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 

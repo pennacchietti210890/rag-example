@@ -1,7 +1,10 @@
+import json
 import logging
-from typing import Dict
+import os
+from typing import Dict, List, Optional
 
 import requests
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +13,34 @@ class APIError(Exception):
     """Raised when there's an error with external API calls"""
 
     pass
+
+
+def get_available_models(api_key: str, api_url: str) -> List[str]:
+    """Fetch available models from Groq API"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Remove any trailing slash from the API URL
+        base_url = api_url.rstrip('/')
+        response = requests.get(f"{base_url}/v1/models", headers=headers)
+        
+        if response.status_code == 200:
+            models_data = response.json()
+            # Extract model IDs from the response
+            return [model["id"] for model in models_data.get("data", [])]
+        else:
+            logger.error(f"Failed to fetch models: {response.text}")
+            raise APIError(f"Failed to fetch models: {response.text}")
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error while fetching models: {str(e)}")
+        raise APIError(f"Request error while fetching models: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error while fetching models: {str(e)}")
+        raise APIError(f"Unexpected error while fetching models: {str(e)}")
 
 
 def generate_response(

@@ -29,18 +29,57 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = None
 if "uploaded_file_name" not in st.session_state:
     st.session_state.uploaded_file_name = None
+if "available_models" not in st.session_state:
+    st.session_state.available_models = []
+if "selected_model" not in st.session_state:
+    st.session_state.selected_model = "local"
+if "model_type" not in st.session_state:
+    st.session_state.model_type = "Local (Llama 3.2 Instruct - 3B)"
+if "models_fetched" not in st.session_state:
+    st.session_state.models_fetched = False
+
+def fetch_available_models():
+    """Fetch available models from the backend if not already fetched"""
+    if not st.session_state.models_fetched:
+        try:
+            response = requests.get("http://localhost:8000/models/")
+            if response.status_code == 200:
+                st.session_state.available_models = response.json().get("models", [])
+                st.session_state.models_fetched = True
+        except Exception as e:
+            st.error(f"Failed to fetch available models: {str(e)}")
+            st.session_state.available_models = []
+            st.session_state.models_fetched = True
+
+# Fetch models once at startup
+fetch_available_models()
 
 # Sidebar
 with st.sidebar:
     st.header("🔧 Model Settings")
     model_type = st.radio(
-        "Choose a model:", ("Local (Llama 3.2 - 3B)", "Cloud (Llama 3 - 70B via Groq)")
+        "Choose a model:", 
+        ("Local (Llama 3.2 Instruct - 3B)", "Cloud (Groq)"),
+        key="model_type",
+        index=0 if st.session_state.model_type == "Local (Llama 3.2 Instruct - 3B)" else 1
     )
-    model_map = {
-        "Local (Llama 3.2 - 3B)": "local",
-        "Cloud (Llama 3 - 70B via Groq)": "groq",
-    }
-    selected_model = model_map[model_type]
+    
+    if model_type == "Cloud (Groq)":
+        if st.session_state.available_models:
+            selected_model = st.selectbox(
+                "Select Groq Model",
+                options=st.session_state.available_models,
+                key="model_select",
+                help="Choose from available Groq models"
+            )
+            model_type_value = "groq"
+        else:
+            st.warning("No Groq models available. Please check your API configuration.")
+            selected_model = "local"  # Fallback to local model
+            model_type_value = "local"
+    else:
+        selected_model = "local"
+        model_type_value = "local"
 
     st.header("🎚️ Generation Parameters")
     with st.expander("LLM Settings", expanded=False):
@@ -163,7 +202,8 @@ if submit_button and query:
                     "http://localhost:8000/query/",
                     json={
                         "query": query,
-                        "model_type": selected_model,
+                        "model_type": model_type_value,
+                        "model_name": selected_model,
                         "session_id": st.session_state.session_id,
                         # LLM parameters
                         "temperature": temperature,

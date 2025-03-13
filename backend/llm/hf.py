@@ -16,7 +16,7 @@ class ModelError(Exception):
 
 # Hugging Face Transformers pipeline
 def load_local_model(
-    model_id: str = "meta-llama/Llama-3.2-3B",
+    model_id: str = "meta-llama/Llama-3.2-3B-Instruct",
     device_map: str = "auto",
     torch_dtype: torch.dtype = torch.bfloat16,
 ) -> pipeline:
