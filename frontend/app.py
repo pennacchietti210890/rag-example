@@ -6,7 +6,7 @@ import streamlit as st
 
 # Set page config at the very beginning
 st.set_page_config(
-    page_title="Doc QA", page_icon="📄", layout="wide", initial_sidebar_state="expanded"
+    page_title="RAG Playground", page_icon="🤖", layout="wide", initial_sidebar_state="expanded"
 )
 
 # Custom CSS
@@ -17,6 +17,46 @@ st.markdown(
         .stTextInput>div>div>input { background-color: #1e2229; color: white; font-size: 16px; }
         .stButton>button { background-color: #4CAF50; color: white; font-size: 16px; }
         .stMarkdown { font-size: 16px; }
+        .passage-box {
+            background-color: #1e2229;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 12px;
+            font-style: italic;
+        }
+        .prompt-box {
+            background-color: #1e2229;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+            font-style: italic;
+        }
+        .section-header {
+            font-size: 1.2em;
+            margin-top: 2em;
+            margin-bottom: 1em;
+        }
+        .debug-header {
+            font-size: 1em;
+            color: #888;
+            margin-bottom: 1em;
+        }
+        .pdf-note {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 2em;
+            padding-top: 1em;
+            border-top: 1px solid #333;
+        }
+        .highlight-1 { background-color: rgba(255, 0, 0, 0.1); }
+        .highlight-2 { background-color: rgba(0, 255, 0, 0.1); }
+        .highlight-3 { background-color: rgba(0, 0, 255, 0.1); }
+        .highlight-4 { background-color: rgba(255, 255, 0, 0.1); }
+        .highlight-5 { background-color: rgba(255, 0, 255, 0.1); }
     </style>
     """,
     unsafe_allow_html=True,
@@ -37,6 +77,10 @@ if "model_type" not in st.session_state:
     st.session_state.model_type = "Local (Llama 3.2 Instruct - 3B)"
 if "models_fetched" not in st.session_state:
     st.session_state.models_fetched = False
+if "last_prompt_sections" not in st.session_state:
+    st.session_state.last_prompt_sections = None
+if "last_passages" not in st.session_state:
+    st.session_state.last_passages = None
 
 def fetch_available_models():
     """Fetch available models from the backend if not already fetched"""
@@ -136,96 +180,120 @@ with st.sidebar:
             help="Number of most relevant chunks to retrieve. More chunks provide broader context but may include less relevant information.",
         )
 
-    st.header("ℹ️ How It Works")
-    st.write(
-        "1️⃣ Upload a document(PDF).\n"
-        "2️⃣ Ask specific questions about the document.\n"
-        "3️⃣ Receive AI-generated responses based on the document's content."
+    st.markdown('<div class="pdf-note">🔍 Ensure that the uploaded document is a pdf file.</div>', unsafe_allow_html=True)
+
+# Create two columns for the main content and right sidebar
+main_col, right_sidebar = st.columns([3, 1])
+
+with main_col:
+    # Main content
+    st.title("🤖 RAG Playground")
+    st.markdown("**Upload a document (PDF) and ask questions about its content!**")
+
+    # File Upload Section
+    st.markdown('<div class="section-header">🗂 Upload a Document (PDF)</div>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader(
+        "Choose a PDF file", type=["pdf"], help="Upload a document for analysis"
     )
-    st.info("🔍 Ensure that the uploaded document is a pdf file.")
 
-# Main content
-st.title("📄 Doc Q&A - example RAG application")
-st.markdown("**Upload a document (PDF) and ask questions about its content!**")
-
-# File Upload Section
-st.header("🗂 Upload a Document (PDF)")
-uploaded_file = st.file_uploader(
-    "Choose a PDF file", type=["pdf"], help="Upload a document for analysis"
-)
-
-if uploaded_file and (st.session_state.uploaded_file_name != uploaded_file.name):
-    with st.spinner("Uploading and processing file..."):
-        try:
-            files = {
-                "file": (
-                    uploaded_file.name,
-                    uploaded_file.getvalue(),
-                    "application/pdf",
-                )
-            }
-            # Add RAG parameters to the upload request
-            params = {
-                "chunk_size": chunk_size,
-                "chunk_overlap": chunk_overlap,
-                "num_chunks": num_chunks,
-            }
-            response = requests.post(
-                "http://localhost:8000/upload/",
-                files=files,
-                params=params,  # Pass RAG parameters as query parameters
-            )
-
-            if response.status_code == 200:
-                st.session_state.session_id = response.json().get("session_id")
-                st.session_state.uploaded_file_name = uploaded_file.name
-                st.success("✅ File uploaded and indexed successfully!")
-            else:
-                st.error(f"❌ Failed to upload file: {response.text}")
-        except Exception as e:
-            st.error(f"❌ Error uploading file: {str(e)}")
-
-# Chat-Style Q&A Section
-st.header("💬 Chat with the Report")
-query = st.text_input(
-    "Enter your question:", help="Type your question about the uploaded document"
-)
-submit_button = st.button("Ask")
-
-if submit_button and query:
-    if not st.session_state.session_id:
-        st.error("❌ Please upload a document first.")
-    else:
-        with st.spinner("Fetching answer..."):
+    if uploaded_file and (st.session_state.uploaded_file_name != uploaded_file.name):
+        with st.spinner("Uploading and processing file..."):
             try:
+                files = {
+                    "file": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        "application/pdf",
+                    )
+                }
+                # Add RAG parameters to the upload request
+                params = {
+                    "chunk_size": chunk_size,
+                    "chunk_overlap": chunk_overlap,
+                    "num_chunks": num_chunks,
+                }
                 response = requests.post(
-                    "http://localhost:8000/query/",
-                    json={
-                        "query": query,
-                        "model_type": model_type_value,
-                        "model_name": selected_model,
-                        "session_id": st.session_state.session_id,
-                        # LLM parameters
-                        "temperature": temperature,
-                        "top_p": top_p,
-                        "max_tokens": max_tokens,
-                        # RAG parameters
-                        "chunk_size": chunk_size,
-                        "chunk_overlap": chunk_overlap,
-                        "num_chunks": num_chunks,
-                    },
+                    "http://localhost:8000/upload/",
+                    files=files,
+                    params=params,  # Pass RAG parameters as query parameters
                 )
 
                 if response.status_code == 200:
-                    answer = response.json().get("answer", "No answer found.")
-                    st.session_state.chat_history.append((query, answer))
+                    st.session_state.session_id = response.json().get("session_id")
+                    st.session_state.uploaded_file_name = uploaded_file.name
+                    st.success("✅ File uploaded and indexed successfully!")
                 else:
-                    st.error(f"❌ Failed to fetch answer: {response.text}")
+                    st.error(f"❌ Failed to upload file: {response.text}")
             except Exception as e:
-                st.error(f"❌ Error fetching answer: {str(e)}")
+                st.error(f"❌ Error uploading file: {str(e)}")
 
-# Display chat history
-for question, answer in reversed(st.session_state.chat_history):
-    st.markdown(f"**📝 Question:** {question}")
-    st.markdown(f"**💡 Answer:** {answer}")
-    st.markdown("---")
+    # Chat-Style Q&A Section
+    st.markdown('<div class="section-header">💬 Chat with the Report</div>', unsafe_allow_html=True)
+    query = st.text_input(
+        "Enter your question:", help="Type your question about the uploaded document"
+    )
+    submit_button = st.button("Ask")
+
+    if submit_button and query:
+        if not st.session_state.session_id:
+            st.error("❌ Please upload a document first.")
+        else:
+            with st.spinner("Fetching answer..."):
+                try:
+                    response = requests.post(
+                        "http://localhost:8000/query/",
+                        json={
+                            "query": query,
+                            "model_type": model_type_value,
+                            "model_name": selected_model,
+                            "session_id": st.session_state.session_id,
+                            # LLM parameters
+                            "temperature": temperature,
+                            "top_p": top_p,
+                            "max_tokens": max_tokens,
+                            # RAG parameters
+                            "chunk_size": chunk_size,
+                            "chunk_overlap": chunk_overlap,
+                            "num_chunks": num_chunks,
+                        },
+                    )
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        answer = data.get("answer", "No answer found.")
+                        # Update session state with latest prompt sections and passages
+                        st.session_state.last_prompt_sections = data.get("prompt_sections", [])
+                        st.session_state.last_passages = data.get("retrieved_passages", [])
+                        # Store Q&A pair
+                        st.session_state.chat_history.append({
+                            "question": query,
+                            "answer": answer
+                        })
+                    else:
+                        st.error(f"❌ Failed to fetch answer: {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Error fetching answer: {str(e)}")
+
+    # Display chat history
+    for qa_pair in reversed(st.session_state.chat_history):
+        st.markdown(f"**📝 Question:** {qa_pair['question']}")
+        st.markdown(f"**💡 Answer:** {qa_pair['answer']}")
+        st.markdown("---")
+
+# Right Sidebar
+with right_sidebar:
+    st.markdown('<div class="debug-header">🔍 Debug Information</div>', unsafe_allow_html=True)
+    
+    # Show the most recent prompt sections if available
+    if st.session_state.last_prompt_sections:
+        with st.expander("📝 Last Prompt", expanded=True):
+            prompt_html = ""
+            for i, section in enumerate(st.session_state.last_prompt_sections):
+                if i == 0:  # System prompt
+                    prompt_html += f'<span>{section}</span>'
+                elif i < len(st.session_state.last_prompt_sections) - 1:  # Passages
+                    highlight_class = f"highlight-{i}" if i <= 5 else "highlight-1"
+                    prompt_html += f'<span class="{highlight_class}">{section}</span>'
+                else:  # Question and answer
+                    prompt_html += f'<span>{section}</span>'
+            st.markdown(f'<div class="prompt-box">{prompt_html}</div>', unsafe_allow_html=True)

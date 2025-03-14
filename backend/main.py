@@ -286,6 +286,13 @@ async def query_doc(
 
         prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n{context}\n\nUser Question: {query_request.query}\n\n Answer:"
 
+        # Split the prompt into sections for highlighting
+        prompt_sections = [
+            "You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n",
+            *[f"Passage {i+1}:\n{chunk}\n" for i, chunk in enumerate(small_chunks)],
+            f"\nUser Question: {query_request.query}\n\n Answer:"
+        ]
+
         if query_request.model_type == ModelType.GROQ:
             response = generate_response(
                 prompt=prompt,
@@ -297,7 +304,11 @@ async def query_doc(
                 top_p=query_request.top_p,
                 max_tokens=query_request.max_tokens,
             )
-            return response
+            return {
+                "answer": response.get("answer", ""),
+                "prompt_sections": prompt_sections,
+                "retrieved_passages": retrieved_chunks
+            }
 
         elif query_request.model_type == ModelType.LOCAL:
             try:
@@ -312,7 +323,11 @@ async def query_doc(
                     eos_token_id=tokenizer.eos_token_id,
                 )[0]["generated_text"]
                 logger.info("Successfully generated response with local model")
-                return {"answer": response}
+                return {
+                    "answer": response,
+                    "prompt_sections": prompt_sections,
+                    "retrieved_passages": retrieved_chunks
+                }
             except Exception as e:
                 logger.error(f"Local model error: {str(e)}", exc_info=True)
                 raise ModelError(

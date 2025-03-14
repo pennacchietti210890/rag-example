@@ -18,11 +18,14 @@ class DocumentProcessingError(Exception):
 class DocumentManager:
     """Manages document state and operations"""
 
-    def __init__(self):
+    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3):
         self._index: Optional[faiss.IndexFlatL2] = None
         self._chunks: List[str] = []
         self._lock = Lock()
         self._is_initialized = False
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.num_chunks = num_chunks
 
     @property
     def is_initialized(self) -> bool:
@@ -41,7 +44,7 @@ class DocumentManager:
         with self._lock:
             try:
                 # Split into chunks
-                self._chunks = self._chunk_text(text, chunk_size=512, overlap=50)
+                self._chunks = self._chunk_text(text, chunk_size=self.chunk_size, overlap=self.chunk_overlap)
 
                 if not self._chunks:
                     raise DocumentProcessingError(
@@ -65,7 +68,7 @@ class DocumentManager:
                 raise e
 
     def search_chunks(
-        self, query: str, embedding_model: SentenceTransformer, k: int = 3
+        self, query: str, embedding_model: SentenceTransformer
     ) -> List[str]:
         """Search for relevant chunks using the query"""
         with self._lock:
@@ -73,7 +76,7 @@ class DocumentManager:
                 raise DocumentProcessingError("No document has been loaded and indexed")
 
             query_embedding = embedding_model.encode([query])
-            D, I = self._index.search(np.array(query_embedding), k=k)
+            D, I = self._index.search(np.array(query_embedding), k=self.num_chunks)
             return [self._chunks[i] for i in I[0]]
 
     def reset(self):
