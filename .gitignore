@@ -1,6 +1,7 @@
 .env
 models/
 data/
+temp/
 *.log
 *.pdf
 *.txt

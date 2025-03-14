@@ -26,6 +26,7 @@ class DocumentManager:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.num_chunks = num_chunks
+        self._original_text: Optional[str] = None  # Store the original text
 
     @property
     def is_initialized(self) -> bool:
@@ -43,8 +44,11 @@ class DocumentManager:
         """Process a document and create embeddings"""
         with self._lock:
             try:
-                # Split into chunks
-                self._chunks = self._chunk_text(text, chunk_size=self.chunk_size, overlap=self.chunk_overlap)
+                # Store the original text
+                self._original_text = text
+                
+                # Split into chunks using instance variables
+                self._chunks = self._chunk_text(text)
 
                 if not self._chunks:
                     raise DocumentProcessingError(
@@ -65,18 +69,27 @@ class DocumentManager:
                 self._is_initialized = False
                 self._index = None
                 self._chunks = []
+                self._original_text = None
                 raise e
 
+    def reprocess_document(self, embedding_model: SentenceTransformer) -> Dict[str, int]:
+        """Reprocess the document with current parameters"""
+        if not self._original_text:
+            raise DocumentProcessingError("No document to reprocess")
+        return self.process_document(self._original_text, embedding_model)
+
     def search_chunks(
-        self, query: str, embedding_model: SentenceTransformer
+        self, query: str, embedding_model: SentenceTransformer, num_chunks: Optional[int] = None
     ) -> List[str]:
         """Search for relevant chunks using the query"""
         with self._lock:
             if not self._is_initialized or self._index is None:
                 raise DocumentProcessingError("No document has been loaded and indexed")
 
+            # Use provided num_chunks or fall back to instance variable
+            k = num_chunks if num_chunks is not None else self.num_chunks
             query_embedding = embedding_model.encode([query])
-            D, I = self._index.search(np.array(query_embedding), k=self.num_chunks)
+            D, I = self._index.search(np.array(query_embedding), k=k)
             return [self._chunks[i] for i in I[0]]
 
     def reset(self):
@@ -85,19 +98,24 @@ class DocumentManager:
             self._index = None
             self._chunks = []
             self._is_initialized = False
+            self._original_text = None
 
     def _chunk_text(
-        self, text: str, chunk_size: int = 512, overlap: int = 50
+        self, text: str, chunk_size: Optional[int] = None, chunk_overlap: Optional[int] = None
     ) -> List[str]:
         """Splits text into overlapping chunks for better retrieval"""
         if not text or not text.strip():
             raise DocumentProcessingError("Empty text provided for chunking")
+
+        # Use provided parameters or fall back to instance variables
+        size = chunk_size if chunk_size is not None else self.chunk_size
+        overlap = chunk_overlap if chunk_overlap is not None else self.chunk_overlap
 
         words = text.split()
         if not words:
             raise DocumentProcessingError("No words found in text after splitting")
 
         return [
-            " ".join(words[i : i + chunk_size])
-            for i in range(0, len(words), chunk_size - overlap)
+            " ".join(words[i : i + size])
+            for i in range(0, len(words), size - overlap)
         ]

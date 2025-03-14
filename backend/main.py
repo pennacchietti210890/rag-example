@@ -16,9 +16,8 @@ import torch
 import uvicorn
 from ctransformers import AutoModelForCausalLM
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile, Form
 from fastapi.responses import JSONResponse
-from llama_cpp import Llama
 from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, pipeline
@@ -188,12 +187,13 @@ if not all([GROQ_API_URL, GROQ_API_KEY, MODEL_NAME]):
 @app.post("/upload/")
 async def upload_file(
     file: UploadFile = File(...),
-    chunk_size: int = 500,
-    chunk_overlap: int = 50,
-    num_chunks: int = 3,
+    chunk_size: int = Form(500),
+    chunk_overlap: int = Form(50),
+    num_chunks: int = Form(3),
     document_manager: DocumentManager = Depends(get_document_manager_dep),
 ):
     logger.info(f"Processing upload request for file: {file.filename}")
+    logger.info(f"RAG parameters - chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}, num_chunks: {num_chunks}")
 
     if not file.filename.endswith(".pdf"):
         logger.warning(f"Invalid file type attempted: {file.filename}")
@@ -216,8 +216,14 @@ async def upload_file(
         document_manager.chunk_overlap = chunk_overlap
         document_manager.num_chunks = num_chunks
 
-        # Process document using document manager
-        result = document_manager.process_document(text, embedding_model)
+        # Process or reprocess document using document manager
+        if document_manager.is_initialized:
+            logger.info("Reprocessing document with new parameters")
+            result = document_manager.reprocess_document(embedding_model)
+        else:
+            logger.info("Processing new document")
+            result = document_manager.process_document(text, embedding_model)
+
         logger.info(f"Successfully processed file with {result['num_chunks']} chunks")
 
         # Get the current session ID
@@ -256,6 +262,7 @@ async def query_doc(
 ):
     logger.info(f"Processing query request: {query_request.query[:50]}...")
     logger.info(f"Using session ID: {query_request.session_id}")
+    logger.info(f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}")
 
     if not document_manager.is_initialized:
         logger.warning("Query attempted before document upload")
@@ -265,9 +272,20 @@ async def query_doc(
         )
 
     try:
+        # Update document manager parameters
+        document_manager.chunk_size = query_request.chunk_size
+        document_manager.chunk_overlap = query_request.chunk_overlap
+        document_manager.num_chunks = query_request.num_chunks
+
+        # Reprocess document with new parameters
+        logger.info("Reprocessing document with new parameters")
+        document_manager.reprocess_document(embedding_model)
+
         # Retrieve relevant chunks using document manager
         retrieved_chunks = document_manager.search_chunks(
-            query_request.query, embedding_model
+            query_request.query, 
+            embedding_model,
+            num_chunks=query_request.num_chunks
         )
 
         if not retrieved_chunks:
@@ -275,7 +293,7 @@ async def query_doc(
             raise DocumentProcessingError("No relevant chunks found for the query")
 
         # Combine context with user query
-        small_chunks = [chunk[:5000] for chunk in retrieved_chunks]
+        small_chunks = [chunk[:] for chunk in retrieved_chunks]
         context = "\n".join(small_chunks)
 
         # Check if all chunks are identical
@@ -284,14 +302,14 @@ async def query_doc(
                 "FAISS retrieved identical chunks - potential issue with chunking"
             )
 
-        prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n{context}\n\nUser Question: {query_request.query}\n\n Answer:"
-
         # Split the prompt into sections for highlighting
         prompt_sections = [
-            "You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need. Document Context:\n",
+            "You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n",
             *[f"Passage {i+1}:\n{chunk}\n" for i, chunk in enumerate(small_chunks)],
-            f"\nUser Question: {query_request.query}\n\n Answer:"
+            f"\n\nUser Question: {query_request.query}\n\nAnswer:"
         ]
+
+        prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
 
         if query_request.model_type == ModelType.GROQ:
             response = generate_response(

@@ -1,8 +1,12 @@
 import base64
 import time
+import os
 
 import requests
 import streamlit as st
+
+# Get backend URL from environment variable or use default
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Set page config at the very beginning
 st.set_page_config(
@@ -52,11 +56,16 @@ st.markdown(
             padding-top: 1em;
             border-top: 1px solid #333;
         }
-        .highlight-1 { background-color: rgba(255, 0, 0, 0.1); }
-        .highlight-2 { background-color: rgba(0, 255, 0, 0.1); }
-        .highlight-3 { background-color: rgba(0, 0, 255, 0.1); }
-        .highlight-4 { background-color: rgba(255, 255, 0, 0.1); }
-        .highlight-5 { background-color: rgba(255, 0, 255, 0.1); }
+        .highlight-1 { background-color: rgba(255, 255, 0, 0.3); }  /* Bright yellow */
+        .highlight-2 { background-color: rgba(255, 255, 255, 0.3); }  /* White */
+        .highlight-3 { background-color: rgba(0, 255, 0, 0.3); }  /* Bright green */
+        .highlight-4 { background-color: rgba(255, 165, 0, 0.3); }  /* Orange */
+        .highlight-5 { background-color: rgba(0, 255, 255, 0.3); }  /* Cyan */
+        .prompt-section {
+            white-space: pre-wrap;
+            display: block;
+            margin-bottom: 0.5em;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -86,7 +95,7 @@ def fetch_available_models():
     """Fetch available models from the backend if not already fetched"""
     if not st.session_state.models_fetched:
         try:
-            response = requests.get("http://localhost:8000/models/")
+            response = requests.get(f"{BACKEND_URL}/models/")
             if response.status_code == 200:
                 st.session_state.available_models = response.json().get("models", [])
                 st.session_state.models_fetched = True
@@ -207,15 +216,15 @@ with main_col:
                     )
                 }
                 # Add RAG parameters to the upload request
-                params = {
+                data = {
                     "chunk_size": chunk_size,
                     "chunk_overlap": chunk_overlap,
                     "num_chunks": num_chunks,
                 }
                 response = requests.post(
-                    "http://localhost:8000/upload/",
+                    f"{BACKEND_URL}/upload/",
                     files=files,
-                    params=params,  # Pass RAG parameters as query parameters
+                    data=data,  # Pass RAG parameters as form data
                 )
 
                 if response.status_code == 200:
@@ -241,7 +250,7 @@ with main_col:
             with st.spinner("Fetching answer..."):
                 try:
                     response = requests.post(
-                        "http://localhost:8000/query/",
+                        f"{BACKEND_URL}/query/",
                         json={
                             "query": query,
                             "model_type": model_type_value,
@@ -290,10 +299,10 @@ with right_sidebar:
             prompt_html = ""
             for i, section in enumerate(st.session_state.last_prompt_sections):
                 if i == 0:  # System prompt
-                    prompt_html += f'<span>{section}</span>'
+                    prompt_html += f'<div class="prompt-section">{section}</div>'
                 elif i < len(st.session_state.last_prompt_sections) - 1:  # Passages
                     highlight_class = f"highlight-{i}" if i <= 5 else "highlight-1"
-                    prompt_html += f'<span class="{highlight_class}">{section}</span>'
+                    prompt_html += f'<div class="prompt-section {highlight_class}">{section}</div>'
                 else:  # Question and answer
-                    prompt_html += f'<span>{section}</span>'
+                    prompt_html += f'<div class="prompt-section">{section}</div>'
             st.markdown(f'<div class="prompt-box">{prompt_html}</div>', unsafe_allow_html=True)

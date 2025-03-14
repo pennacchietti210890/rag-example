@@ -1,0 +1,36 @@
+FROM python:3.9
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    git \
+    swig \
+    libtesseract-dev \
+    libleptonica-dev \
+    python3-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    gfortran \
+    libcrypt-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt /app/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the frontend application
+COPY frontend/ /app/frontend/
+
+# Expose the port the app runs on
+EXPOSE 8501
+
+# Command to run the application
+CMD ["streamlit", "run", "frontend/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"] 
