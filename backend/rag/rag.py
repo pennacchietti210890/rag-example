@@ -18,7 +18,9 @@ class DocumentProcessingError(Exception):
 class DocumentManager:
     """Manages document state and operations"""
 
-    def __init__(self, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3):
+    def __init__(
+        self, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3
+    ):
         self._index: Optional[faiss.IndexFlatL2] = None
         self._chunks: List[str] = []
         self._lock = Lock()
@@ -46,7 +48,7 @@ class DocumentManager:
             try:
                 # Store the original text
                 self._original_text = text
-                
+
                 # Split into chunks using instance variables
                 self._chunks = self._chunk_text(text)
 
@@ -72,14 +74,19 @@ class DocumentManager:
                 self._original_text = None
                 raise e
 
-    def reprocess_document(self, embedding_model: SentenceTransformer) -> Dict[str, int]:
+    def reprocess_document(
+        self, embedding_model: SentenceTransformer
+    ) -> Dict[str, int]:
         """Reprocess the document with current parameters"""
         if not self._original_text:
             raise DocumentProcessingError("No document to reprocess")
         return self.process_document(self._original_text, embedding_model)
 
     def search_chunks(
-        self, query: str, embedding_model: SentenceTransformer, num_chunks: Optional[int] = None
+        self,
+        query: str,
+        embedding_model: SentenceTransformer,
+        num_chunks: Optional[int] = None,
     ) -> List[str]:
         """Search for relevant chunks using the query"""
         with self._lock:
@@ -101,7 +108,10 @@ class DocumentManager:
             self._original_text = None
 
     def _chunk_text(
-        self, text: str, chunk_size: Optional[int] = None, chunk_overlap: Optional[int] = None
+        self,
+        text: str,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
     ) -> List[str]:
         """Splits text into overlapping chunks for better retrieval"""
         if not text or not text.strip():
@@ -116,6 +126,5 @@ class DocumentManager:
             raise DocumentProcessingError("No words found in text after splitting")
 
         return [
-            " ".join(words[i : i + size])
-            for i in range(0, len(words), size - overlap)
+            " ".join(words[i : i + size]) for i in range(0, len(words), size - overlap)
         ]

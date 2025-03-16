@@ -10,7 +10,10 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Set page config at the very beginning
 st.set_page_config(
-    page_title="RAG Playground", page_icon="🤖", layout="wide", initial_sidebar_state="expanded"
+    page_title="RAG Playground",
+    page_icon="🤖",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # Custom CSS
@@ -81,9 +84,7 @@ if "uploaded_file_name" not in st.session_state:
 if "available_models" not in st.session_state:
     st.session_state.available_models = []
 if "selected_model" not in st.session_state:
-    st.session_state.selected_model = "local"
-if "model_type" not in st.session_state:
-    st.session_state.model_type = "Local (Llama 3.2 Instruct - 3B)"
+    st.session_state.selected_model = None
 if "models_fetched" not in st.session_state:
     st.session_state.models_fetched = False
 if "last_prompt_sections" not in st.session_state:
@@ -110,29 +111,17 @@ fetch_available_models()
 # Sidebar
 with st.sidebar:
     st.header("🔧 Model Settings")
-    model_type = st.radio(
-        "Choose a model:", 
-        ("Local (Llama 3.2 Instruct - 3B)", "Cloud (Groq)"),
-        key="model_type",
-        index=0 if st.session_state.model_type == "Local (Llama 3.2 Instruct - 3B)" else 1
-    )
     
-    if model_type == "Cloud (Groq)":
-        if st.session_state.available_models:
-            selected_model = st.selectbox(
-                "Select Groq Model",
-                options=st.session_state.available_models,
-                key="model_select",
-                help="Choose from available Groq models"
-            )
-            model_type_value = "groq"
-        else:
-            st.warning("No Groq models available. Please check your API configuration.")
-            selected_model = "local"  # Fallback to local model
-            model_type_value = "local"
+    if st.session_state.available_models:
+        selected_model = st.selectbox(
+            "Select Groq Model",
+            options=st.session_state.available_models,
+            key="model_select",
+            help="Choose from available Groq models"
+        )
     else:
-        selected_model = "local"
-        model_type_value = "local"
+        st.error("No Groq models available. Please check your API configuration.")
+        selected_model = None
 
     st.header("🎚️ Generation Parameters")
     with st.expander("LLM Settings", expanded=False):
@@ -253,7 +242,6 @@ with main_col:
                         f"{BACKEND_URL}/query/",
                         json={
                             "query": query,
-                            "model_type": model_type_value,
                             "model_name": selected_model,
                             "session_id": st.session_state.session_id,
                             # LLM parameters

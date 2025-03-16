@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, pipeline
 
-from backend.llm.hf import ModelError, load_local_model
 from backend.rag.rag import DocumentManager, DocumentProcessingError
 from backend.session_manager import SessionManager
 from backend.llm.groq import generate_response, APIError, get_available_models
@@ -64,43 +63,59 @@ def setup_logging():
 logger = setup_logging()
 
 
-# Model type enum
-class ModelType(str, Enum):
-    GROQ = "groq"
-    LOCAL = "local"
-
-    @classmethod
-    def values(cls) -> List[str]:
-        return [member.value for member in cls]
-
-
 class QueryRequest(BaseModel):
     query: str = Field(
         ..., min_length=1, description="The question to ask about the document"
     )
-    model_type: ModelType = Field(
-        ..., description="The type of model to use for generating the response"
-    )
     model_name: str = Field(
         default="llama3-70b-8192",
-        description="The specific model to use (for Groq models)"
+        description="The specific model to use (for Groq models)",
     )
     session_id: str = Field(..., description="The session ID from the upload response")
     # LLM parameters
-    temperature: float = Field(default=0.7, ge=0.0, le=1.0, description="Controls randomness in the output. Higher values make the output more random, lower values make it more deterministic.")
-    top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Controls diversity via nucleus sampling. Lower values make the output more focused.")
-    max_tokens: int = Field(default=200, ge=1, le=2000, description="Maximum number of tokens to generate in the response.")
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Controls randomness in the output. Higher values make the output more random, lower values make it more deterministic.",
+    )
+    top_p: float = Field(
+        default=0.9,
+        ge=0.0,
+        le=1.0,
+        description="Controls diversity via nucleus sampling. Lower values make the output more focused.",
+    )
+    max_tokens: int = Field(
+        default=200,
+        ge=1,
+        le=2000,
+        description="Maximum number of tokens to generate in the response.",
+    )
     # RAG parameters
-    chunk_size: int = Field(default=500, ge=100, le=2000, description="Size of text chunks for document processing")
-    chunk_overlap: int = Field(default=50, ge=0, le=200, description="Number of overlapping tokens between chunks")
-    num_chunks: int = Field(default=3, ge=1, le=10, description="Number of most relevant chunks to retrieve")
+    chunk_size: int = Field(
+        default=500,
+        ge=100,
+        le=2000,
+        description="Size of text chunks for document processing",
+    )
+    chunk_overlap: int = Field(
+        default=50,
+        ge=0,
+        le=200,
+        description="Number of overlapping tokens between chunks",
+    )
+    num_chunks: int = Field(
+        default=3, ge=1, le=10, description="Number of most relevant chunks to retrieve"
+    )
 
 
 # Initialize session manager
 session_manager = SessionManager()
 
 
-async def get_document_manager(session_id: str, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3) -> DocumentManager:
+async def get_document_manager(
+    session_id: str, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3
+) -> DocumentManager:
     """Dependency function to get or create a document manager for the current session"""
     logger.info(f"Received request with session_id: {session_id}")
 
@@ -193,7 +208,9 @@ async def upload_file(
     document_manager: DocumentManager = Depends(get_document_manager_dep),
 ):
     logger.info(f"Processing upload request for file: {file.filename}")
-    logger.info(f"RAG parameters - chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}, num_chunks: {num_chunks}")
+    logger.info(
+        f"RAG parameters - chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}, num_chunks: {num_chunks}"
+    )
 
     if not file.filename.endswith(".pdf"):
         logger.warning(f"Invalid file type attempted: {file.filename}")
@@ -262,7 +279,9 @@ async def query_doc(
 ):
     logger.info(f"Processing query request: {query_request.query[:50]}...")
     logger.info(f"Using session ID: {query_request.session_id}")
-    logger.info(f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}")
+    logger.info(
+        f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}"
+    )
 
     if not document_manager.is_initialized:
         logger.warning("Query attempted before document upload")
@@ -283,9 +302,7 @@ async def query_doc(
 
         # Retrieve relevant chunks using document manager
         retrieved_chunks = document_manager.search_chunks(
-            query_request.query, 
-            embedding_model,
-            num_chunks=query_request.num_chunks
+            query_request.query, embedding_model, num_chunks=query_request.num_chunks
         )
 
         if not retrieved_chunks:
@@ -306,58 +323,26 @@ async def query_doc(
         prompt_sections = [
             "You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n",
             *[f"Passage {i+1}:\n{chunk}\n" for i, chunk in enumerate(small_chunks)],
-            f"\n\nUser Question: {query_request.query}\n\nAnswer:"
+            f"\n\nUser Question: {query_request.query}\n\nAnswer:",
         ]
 
         prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
 
-        if query_request.model_type == ModelType.GROQ:
-            response = generate_response(
-                prompt=prompt,
-                groq_api_key=GROQ_API_KEY,
-                groq_api_url=GROQ_API_URL,
-                model_name=query_request.model_name,
-                sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
-                temperature=query_request.temperature,
-                top_p=query_request.top_p,
-                max_tokens=query_request.max_tokens,
-            )
-            return {
-                "answer": response.get("answer", ""),
-                "prompt_sections": prompt_sections,
-                "retrieved_passages": retrieved_chunks
-            }
-
-        elif query_request.model_type == ModelType.LOCAL:
-            try:
-                logger.info("Using local model for response generation")
-                llama_pipe, tokenizer = load_local_model()
-                response = llama_pipe(
-                    prompt,
-                    max_new_tokens=query_request.max_tokens,
-                    return_full_text=False,
-                    temperature=query_request.temperature,
-                    top_p=query_request.top_p,
-                    eos_token_id=tokenizer.eos_token_id,
-                )[0]["generated_text"]
-                logger.info("Successfully generated response with local model")
-                return {
-                    "answer": response,
-                    "prompt_sections": prompt_sections,
-                    "retrieved_passages": retrieved_chunks
-                }
-            except Exception as e:
-                logger.error(f"Local model error: {str(e)}", exc_info=True)
-                raise ModelError(
-                    f"Error generating response with local model: {str(e)}"
-                )
-
-        else:
-            logger.warning(f"Invalid model type requested: {query_request.model_type}")
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid model type. Must be one of: {', '.join(ModelType.values())}",
-            )
+        response = generate_response(
+            prompt=prompt,
+            groq_api_key=GROQ_API_KEY,
+            groq_api_url=GROQ_API_URL,
+            model_name=query_request.model_name,
+            sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
+            temperature=query_request.temperature,
+            top_p=query_request.top_p,
+            max_tokens=query_request.max_tokens,
+        )
+        return {
+            "answer": response.get("answer", ""),
+            "prompt_sections": prompt_sections,
+            "retrieved_passages": retrieved_chunks,
+        }
 
     except DocumentProcessingError as e:
         logger.error(f"Document processing error: {str(e)}")

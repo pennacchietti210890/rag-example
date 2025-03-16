@@ -20,13 +20,13 @@ def get_available_models(api_key: str, api_url: str) -> List[str]:
     try:
         headers = {
             "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
+
         # Remove any trailing slash from the API URL
-        base_url = api_url.rstrip('/')
+        base_url = api_url.rstrip("/")
         response = requests.get(f"{base_url}/v1/models", headers=headers)
-        
+
         if response.status_code == 200:
             models_data = response.json()
             # Extract model IDs from the response
@@ -34,7 +34,7 @@ def get_available_models(api_key: str, api_url: str) -> List[str]:
         else:
             logger.error(f"Failed to fetch models: {response.text}")
             raise APIError(f"Failed to fetch models: {response.text}")
-            
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error while fetching models: {str(e)}")
         raise APIError(f"Request error while fetching models: {str(e)}")
