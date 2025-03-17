@@ -1,6 +1,6 @@
-# Testing the RAG Financial Reports Application
+# Testing the RAG Example Application
 
-This directory contains tests for the RAG Financial Reports application. The tests are organized into unit tests and functional tests.
+This directory contains tests for the RAG Example application. The tests are organized into unit tests and functional tests.
 
 ## Test Structure
 
