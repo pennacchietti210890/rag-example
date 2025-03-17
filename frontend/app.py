@@ -1,9 +1,12 @@
 import base64
 import time
 import os
+import io
 
 import requests
 import streamlit as st
+import fitz  # PyMuPDF for PDF handling
+from streamlit_pdf_viewer import pdf_viewer  # Import the PDF viewer component
 
 # Get backend URL from environment variable or use default
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -141,6 +144,8 @@ if "last_prompt_sections" not in st.session_state:
     st.session_state.last_prompt_sections = None
 if "last_passages" not in st.session_state:
     st.session_state.last_passages = None
+if "passage_page_map" not in st.session_state:
+    st.session_state.passage_page_map = []
 
 def fetch_available_models(api_key: str = None):
     """Fetch available models from the backend if not already fetched"""
@@ -225,31 +230,53 @@ with st.sidebar:
 
     st.markdown("---")  # Visual separator
 
-    with st.expander("RAG Settings", expanded=False):
-        chunk_size = st.slider(
-            "Chunk Size",
-            min_value=100,
-            max_value=2000,
-            value=500,
-            step=50,
-            help="Size of text chunks for document processing. Larger chunks provide more context but may be less precise.",
-        )
-        chunk_overlap = st.slider(
-            "Chunk Overlap",
-            min_value=0,
-            max_value=200,
-            value=50,
-            step=10,
-            help="Number of overlapping tokens between chunks. Higher overlap helps maintain context across chunks.",
-        )
-        num_chunks = st.slider(
-            "Number of Chunks",
-            min_value=1,
-            max_value=10,
-            value=3,
-            step=1,
-            help="Number of most relevant chunks to retrieve. More chunks provide broader context but may include less relevant information.",
-        )
+    # Add RAG options radio button
+    rag_option = st.radio(
+        "Select RAG Mode:",
+        options=["No RAG", "RAG", "Self-RAG"],
+        index=1,  # Default to RAG
+        help="Choose retrieval mode: No RAG (no document retrieval), RAG (standard retrieval), or Self-RAG (model decides when to retrieve)."
+    )
+    
+    # Initialize rag_enabled in session state if not already present
+    if "rag_enabled" not in st.session_state:
+        st.session_state.rag_enabled = True
+    
+    # Update rag_enabled based on selection
+    st.session_state.rag_enabled = rag_option in ["RAG", "Self-RAG"]
+    
+    # Only show RAG settings if RAG or Self-RAG is selected
+    if st.session_state.rag_enabled:
+        with st.expander("RAG Settings", expanded=False):
+            chunk_size = st.slider(
+                "Chunk Size",
+                min_value=100,
+                max_value=2000,
+                value=500,
+                step=50,
+                help="Size of text chunks for document processing. Larger chunks provide more context but may be less precise.",
+            )
+            chunk_overlap = st.slider(
+                "Chunk Overlap",
+                min_value=0,
+                max_value=200,
+                value=50,
+                step=10,
+                help="Number of overlapping tokens between chunks. Higher overlap helps maintain context across chunks.",
+            )
+            num_chunks = st.slider(
+                "Number of Chunks",
+                min_value=1,
+                max_value=10,
+                value=3,
+                step=1,
+                help="Number of most relevant chunks to retrieve. More chunks provide broader context but may include less relevant information.",
+            )
+    else:
+        # Set default values when RAG is disabled
+        chunk_size = 500
+        chunk_overlap = 50
+        num_chunks = 3
 
     st.markdown('<div class="pdf-note">🔍 Ensure that the uploaded document is a pdf file.</div>', unsafe_allow_html=True)
 
@@ -331,6 +358,8 @@ with main_col:
                             "top_p": top_p,
                             "max_tokens": max_tokens,
                             # RAG parameters
+                            "rag_enabled": st.session_state.rag_enabled,
+                            "rag_mode": rag_option.lower(),
                             "chunk_size": chunk_size,
                             "chunk_overlap": chunk_overlap,
                             "num_chunks": num_chunks,
@@ -343,6 +372,8 @@ with main_col:
                         # Update session state with latest prompt sections and passages
                         st.session_state.last_prompt_sections = data.get("prompt_sections", [])
                         st.session_state.last_passages = data.get("retrieved_passages", [])
+                        # Reset the highlighted state to ensure new passages are highlighted
+                        st.session_state.passages_highlighted = False
                         # Store Q&A pair
                         st.session_state.chat_history.append({
                             "question": query,
@@ -358,6 +389,176 @@ with main_col:
         st.markdown(f"**📝 Question:** {qa_pair['question']}")
         st.markdown(f"**💡 Answer:** {qa_pair['answer']}")
         st.markdown("---")
+    
+    # Add PDF viewer below chat history
+    if uploaded_file and st.session_state.session_id:
+        st.markdown('<div class="section-header">📄 Document with Highlighted Passages</div>', unsafe_allow_html=True)
+        
+        # Store the PDF content in session state if not already present
+        if "pdf_content" not in st.session_state and uploaded_file:
+            st.session_state.pdf_content = uploaded_file.getvalue()
+        
+        # Initialize current passage index if not already present
+        if "current_passage_index" not in st.session_state:
+            st.session_state.current_passage_index = 0
+        
+        # If we have passages from the last query, highlight them in the PDF
+        if "last_passages" in st.session_state and st.session_state.last_passages:
+            # Only process highlighting if we haven't already for these passages
+            if "passages_highlighted" not in st.session_state or not st.session_state.passages_highlighted:
+                with st.spinner("Highlighting passages in the document..."):
+                    try:
+                        # Load the PDF
+                        pdf_content = st.session_state.pdf_content
+                        pdf_file = fitz.open(stream=pdf_content, filetype="pdf")
+                        
+                        # Map of passage index to page number
+                        passage_page_map = []
+                        
+                        # Use different colors for different passages
+                        colors = [
+                            (1, 1, 0),      # Yellow
+                            (1, 0.7, 0.7),  # Light Red
+                            (0.7, 1, 0.7),  # Light Green
+                            (0.7, 0.7, 1),  # Light Blue
+                            (1, 0.7, 1)     # Light Purple
+                        ]
+                        
+                        # Process each passage
+                        for i, passage in enumerate(st.session_state.last_passages):
+                            # Skip empty passages
+                            if not passage or not passage.strip():
+                                passage_page_map.append(None)
+                                continue
+                            
+                            # Get color for this passage
+                            color = colors[i % len(colors)]
+                            
+                            # Clean up the passage
+                            clean_passage = ' '.join(passage.split())
+                            
+                            # Track if this passage was found
+                            passage_found = False
+                            passage_page = None
+                            
+                            # Try different approaches to extract representative text for searching
+                            # First try with a longer phrase (first 5-8 words)
+                            words = clean_passage.split()
+                            phrases_to_try = []
+                            
+                            if len(words) >= 5:
+                                # Try with first 5-8 words
+                                phrase_length = min(5, len(words))
+                                phrases_to_try.append(' '.join(words[:phrase_length]))
+                                
+                                # Also try with the middle 5-8 words if the passage is long enough
+                                if len(words) >= 10:
+                                    mid_start = len(words) // 2 - 3
+                                    mid_end = mid_start + min(8, len(words) - mid_start)
+                                    phrases_to_try.append(' '.join(words[mid_start:mid_end]))
+                            
+                            # If no substantial phrases, just use the full passage
+                            if not phrases_to_try and clean_passage:
+                                phrases_to_try.append(clean_passage)
+                            
+                            # Try each phrase until we find a match
+                            for phrase in phrases_to_try:
+                                if passage_found:
+                                    break
+                                    
+                                # Search for the phrase in each page
+                                for page_num in range(len(pdf_file)):
+                                    if passage_found:
+                                        break
+                                        
+                                    page = pdf_file[page_num]
+                                    try:
+                                        text_instances = page.search_for(phrase)
+                                        
+                                        if text_instances:  # If found matches
+                                            # Add highlight for the first instance
+                                            highlight = page.add_highlight_annot(text_instances[0])
+                                            highlight.set_colors(stroke=color)
+                                            highlight.update()
+                                            
+                                            # Record the page for this passage
+                                            passage_found = True
+                                            passage_page = page_num
+                                            break
+                                    except Exception:
+                                        continue
+                            
+                            # Add the page number to the passage_page_map
+                            passage_page_map.append(passage_page)
+                        
+                        # Save the highlighted PDF to memory
+                        output_buffer = io.BytesIO()
+                        pdf_file.save(output_buffer)
+                        pdf_file.close()
+                        
+                        # Update the PDF content with highlighted version
+                        st.session_state.pdf_content = output_buffer.getvalue()
+                        
+                        # Store the passage_page_map in session state
+                        st.session_state.passage_page_map = passage_page_map
+                        
+                        # Mark as highlighted
+                        st.session_state.passages_highlighted = True
+                        
+                        # Set current passage index to the first valid page
+                        valid_passages = [(i, p) for i, p in enumerate(passage_page_map) if p is not None]
+                        if valid_passages:
+                            # Get the first passage with a valid page
+                            st.session_state.current_passage_index = valid_passages[0][0]
+                            # Set the current page to the first highlighted passage
+                            st.session_state.current_pdf_page = valid_passages[0][1]
+                            
+                    except Exception as e:
+                        st.warning(f"Could not highlight passages in PDF: {str(e)}")
+                    
+        # Display the PDF using the streamlit_pdf_viewer component
+        st.markdown("### PDF Document")
+        
+        try:
+            # Get the current page from session state
+            current_page = 0
+            if "current_pdf_page" in st.session_state:
+                current_page = st.session_state.current_pdf_page
+            
+            # Add extra check to make sure we go to the first passage page
+            if "passage_page_map" in st.session_state and st.session_state.passage_page_map and "current_passage_index" in st.session_state:
+                idx = st.session_state.current_passage_index
+                if 0 <= idx < len(st.session_state.passage_page_map) and st.session_state.passage_page_map[idx] is not None:
+                    current_page = st.session_state.passage_page_map[idx]
+                    # Make sure to update the current_pdf_page in session state
+                    st.session_state.current_pdf_page = current_page
+                
+            # Use the streamlit_pdf_viewer component
+                        
+            # Filter out None values from passage_page_map and add 1 to convert to 1-indexed
+            pages_to_render = [x+1 for x in st.session_state.passage_page_map if x is not None]
+
+            pdf_viewer(st.session_state.pdf_content, pages_to_render=pages_to_render, height=600)
+            
+        except Exception as e:
+            st.error(f"Error displaying PDF: {str(e)}")
+            
+            # Fallback to base64 iframe if the component fails
+            try:
+                base64_pdf = base64.b64encode(st.session_state.pdf_content).decode('utf-8')
+                pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+                st.markdown(pdf_display, unsafe_allow_html=True)
+                st.info("Using fallback PDF viewer. For better experience, please install the streamlit-pdf-viewer component.")
+            except Exception as e2:
+                st.error(f"Failed to display PDF with fallback method: {str(e2)}")
+        
+        # Add a download button for the highlighted PDF
+        st.download_button(
+            label="📥 Download Highlighted PDF",
+            data=st.session_state.pdf_content,
+            file_name=f"highlighted_{st.session_state.uploaded_file_name}" if "uploaded_file_name" in st.session_state else "highlighted_document.pdf",
+            mime="application/pdf"
+        )
 
 # Right Sidebar
 with right_sidebar:
