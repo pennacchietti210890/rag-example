@@ -54,16 +54,12 @@ def mock_groq_response():
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": "The company reported revenue of $10 million in Q1 2023."
+                    "content": "The company reported revenue of $10 million in Q1 2023.",
                 },
-                "finish_reason": "stop"
+                "finish_reason": "stop",
             }
         ],
-        "usage": {
-            "prompt_tokens": 150,
-            "completion_tokens": 20,
-            "total_tokens": 170
-        }
+        "usage": {"prompt_tokens": 150, "completion_tokens": 20, "total_tokens": 170},
     }
 
 
@@ -74,9 +70,9 @@ def temp_pdf_file():
         # This is just a placeholder - in a real test you'd create an actual PDF
         temp.write(b"%PDF-1.5\nSome dummy PDF content")
         temp_name = temp.name
-    
+
     yield temp_name
-    
+
     # Cleanup after test
     if os.path.exists(temp_name):
         os.unlink(temp_name)
@@ -88,18 +84,27 @@ def mock_api_responses():
     with requests_mock.Mocker() as m:
         # Mock encryption key endpoint
         m.get("http://testserver/encryption-key", json={"encryption_key": "test_key"})
-        
+
         # Mock models endpoint
-        m.get("http://testserver/models/", json={"models": ["llama3-70b-8192", "mixtral-8x7b-32768"]})
-        
+        m.get(
+            "http://testserver/models/",
+            json={"models": ["llama3-70b-8192", "mixtral-8x7b-32768"]},
+        )
+
         # Mock upload endpoint
-        m.post("http://testserver/upload/", json={"session_id": "test_session_id", "message": "Document processed"})
-        
+        m.post(
+            "http://testserver/upload/",
+            json={"session_id": "test_session_id", "message": "Document processed"},
+        )
+
         # Mock query endpoint
-        m.post("http://testserver/query/", json={
-            "answer": "The revenue was $10 million in Q1 2023.",
-            "prompt_sections": ["section1", "section2"],
-            "retrieved_passages": ["passage1", "passage2"]
-        })
-        
-        yield m 
+        m.post(
+            "http://testserver/query/",
+            json={
+                "answer": "The revenue was $10 million in Q1 2023.",
+                "prompt_sections": ["section1", "section2"],
+                "retrieved_passages": ["passage1", "passage2"],
+            },
+        )
+
+        yield m

@@ -35,7 +35,7 @@ def xor_encrypt_decrypt(data: str, key: str) -> str:
     # Convert strings to bytes
     data_bytes = data.encode()
     # Create a repeating key of the same length as data
-    key_bytes = (key * (len(data_bytes) // len(key) + 1))[:len(data_bytes)].encode()
+    key_bytes = (key * (len(data_bytes) // len(key) + 1))[: len(data_bytes)].encode()
     # XOR operation
     result_bytes = bytes(a ^ b for a, b in zip(data_bytes, key_bytes))
     # Return base64 encoded result
@@ -49,12 +49,14 @@ def decrypt_api_key(encrypted_key: str, key: str) -> str:
         # Decode base64
         encrypted_bytes = base64.b64decode(encrypted_key)
         # Convert to string for XOR
-        encrypted_str = encrypted_bytes.decode('utf-8', errors='ignore')
+        encrypted_str = encrypted_bytes.decode("utf-8", errors="ignore")
         # Apply XOR with key
-        key_bytes = (key * (len(encrypted_str) // len(key) + 1))[:len(encrypted_str)].encode()
+        key_bytes = (key * (len(encrypted_str) // len(key) + 1))[
+            : len(encrypted_str)
+        ].encode()
         result_bytes = bytes(a ^ b for a, b in zip(encrypted_str.encode(), key_bytes))
         # Return decrypted result
-        return result_bytes.decode('utf-8', errors='ignore')
+        return result_bytes.decode("utf-8", errors="ignore")
     except Exception as e:
         logger.error(f"Error decrypting API key: {str(e)}")
         # Return a placeholder to avoid breaking the app during debugging
@@ -104,9 +106,7 @@ class QueryRequest(BaseModel):
     query: str = Field(
         ..., min_length=1, description="The question to ask about the document"
     )
-    model_name: str = Field(
-        ..., description="The specific Groq model to use"
-    )
+    model_name: str = Field(..., description="The specific Groq model to use")
     encrypted_api_key: str = Field(..., description="User's encrypted Groq API key")
     session_id: str = Field(..., description="The session ID from the upload response")
     # LLM parameters
@@ -130,7 +130,7 @@ class QueryRequest(BaseModel):
                 "max_tokens": 200,
                 "chunk_size": 500,
                 "chunk_overlap": 50,
-                "num_chunks": 3
+                "num_chunks": 3,
             }
         }
 
@@ -309,9 +309,11 @@ async def query_doc(
 
     try:
         # Decrypt the API key using the new function
-        decrypted_api_key = decrypt_api_key(query_request.encrypted_api_key, ENCRYPTION_KEY)
+        decrypted_api_key = decrypt_api_key(
+            query_request.encrypted_api_key, ENCRYPTION_KEY
+        )
         logger.info(f"API key decryption successful")
-        
+
         # Update document manager parameters
         document_manager.chunk_size = query_request.chunk_size
         document_manager.chunk_overlap = query_request.chunk_overlap
@@ -360,7 +362,7 @@ async def query_doc(
             top_p=query_request.top_p,
             max_tokens=query_request.max_tokens,
         )
-        
+
         return {
             "answer": response.get("answer", ""),
             "prompt_sections": prompt_sections,
@@ -382,21 +384,27 @@ async def query_doc(
 async def get_models(encrypted_api_key: str):
     """Get available models from Groq using user's encrypted API key"""
     try:
-        logger.info(f"Received encrypted API key (first 10 chars): {encrypted_api_key[:10]}...")
-        
+        logger.info(
+            f"Received encrypted API key (first 10 chars): {encrypted_api_key[:10]}..."
+        )
+
         # Decrypt the API key using the new function
         decrypted_api_key = decrypt_api_key(encrypted_api_key, ENCRYPTION_KEY)
         logger.info(f"API key decryption successful for models endpoint")
-        
+
         # Validate API key format
         if not decrypted_api_key.startswith("gsk_"):
-            logger.warning(f"Decrypted API key doesn't have expected format (should start with 'gsk_')")
+            logger.warning(
+                f"Decrypted API key doesn't have expected format (should start with 'gsk_')"
+            )
             # Try a direct approach as fallback
             if encrypted_api_key.startswith("gsk_"):
                 logger.info("Using original API key as fallback")
                 decrypted_api_key = encrypted_api_key
-        
-        logger.info(f"Fetching models with API key (first 5 chars): {decrypted_api_key[:5]}...")
+
+        logger.info(
+            f"Fetching models with API key (first 5 chars): {decrypted_api_key[:5]}..."
+        )
         models = get_available_models(decrypted_api_key, "https://api.groq.com/openai")
         return {"models": models}
     except APIError as e:
