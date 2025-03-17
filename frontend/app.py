@@ -8,6 +8,56 @@ import streamlit as st
 # Get backend URL from environment variable or use default
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
+# Initialize encryption
+encryption_key = None
+
+# Simple XOR cipher for encryption/decryption
+def xor_encrypt_decrypt(data: str, key: str) -> str:
+    """Encrypt or decrypt data using XOR with the given key"""
+    # Convert strings to bytes
+    data_bytes = data.encode()
+    # Create a repeating key of the same length as data
+    key_bytes = (key * (len(data_bytes) // len(key) + 1))[:len(data_bytes)].encode()
+    # XOR operation
+    result_bytes = bytes(a ^ b for a, b in zip(data_bytes, key_bytes))
+    # Return base64 encoded result
+    return base64.b64encode(result_bytes).decode()
+
+def fetch_encryption_key():
+    """Fetch encryption key from backend"""
+    global encryption_key
+    if not encryption_key:
+        try:
+            response = requests.get(f"{BACKEND_URL}/encryption-key")
+            if response.status_code == 200:
+                encryption_key = response.json().get("encryption_key")
+                st.session_state["encryption_key"] = encryption_key
+                return True
+            else:
+                st.error("Failed to fetch encryption key from server")
+                return False
+        except Exception as e:
+            st.error(f"Failed to fetch encryption key: {str(e)}")
+            return False
+    return True
+
+def encrypt_api_key(api_key):
+    """Encrypt API key using XOR cipher"""
+    if not encryption_key:
+        if not fetch_encryption_key():
+            return None
+    
+    try:
+        # For debugging
+        st.session_state["last_encrypted"] = xor_encrypt_decrypt(api_key, encryption_key)
+        return xor_encrypt_decrypt(api_key, encryption_key)
+    except Exception as e:
+        st.error(f"Failed to encrypt API key: {str(e)}")
+        return None
+
+# Fetch encryption key at startup
+fetch_encryption_key()
+
 # Set page config at the very beginning
 st.set_page_config(
     page_title="RAG Playground",
@@ -92,25 +142,45 @@ if "last_prompt_sections" not in st.session_state:
 if "last_passages" not in st.session_state:
     st.session_state.last_passages = None
 
-def fetch_available_models():
+def fetch_available_models(api_key: str = None):
     """Fetch available models from the backend if not already fetched"""
-    if not st.session_state.models_fetched:
+    if not st.session_state.models_fetched and api_key:
         try:
-            response = requests.get(f"{BACKEND_URL}/models/")
+            # Encrypt the API key
+            encrypted_api_key = encrypt_api_key(api_key)
+            if not encrypted_api_key:
+                st.warning("Encryption failed, trying direct API key")
+                encrypted_api_key = api_key  # Fallback to direct API key
+                
+            response = requests.get(f"{BACKEND_URL}/models/", params={"encrypted_api_key": encrypted_api_key})
             if response.status_code == 200:
                 st.session_state.available_models = response.json().get("models", [])
+                st.session_state.models_fetched = True
+                st.success("Successfully fetched models!")
+            else:
+                st.error(f"Failed to fetch models. Please check your API key. Status: {response.status_code}, Response: {response.text}")
+                st.session_state.available_models = []
                 st.session_state.models_fetched = True
         except Exception as e:
             st.error(f"Failed to fetch available models: {str(e)}")
             st.session_state.available_models = []
             st.session_state.models_fetched = True
 
-# Fetch models once at startup
-fetch_available_models()
-
 # Sidebar
 with st.sidebar:
     st.header("🔧 Model Settings")
+    
+    # Add secure API key input
+    groq_api_key = st.text_input(
+        "Groq API Key",
+        type="password",
+        help="Enter your Groq API key. This will be encrypted before being sent to the backend.",
+        key="groq_api_key"
+    )
+
+    # Fetch models when API key is provided
+    if groq_api_key:
+        fetch_available_models(groq_api_key)
     
     if st.session_state.available_models:
         selected_model = st.selectbox(
@@ -120,7 +190,10 @@ with st.sidebar:
             help="Choose from available Groq models"
         )
     else:
-        st.error("No Groq models available. Please check your API configuration.")
+        if groq_api_key:
+            st.error("No Groq models available. Please check your API key.")
+        else:
+            st.warning("Please enter your Groq API key to see available models.")
         selected_model = None
 
     st.header("🎚️ Generation Parameters")
@@ -235,15 +308,24 @@ with main_col:
     if submit_button and query:
         if not st.session_state.session_id:
             st.error("❌ Please upload a document first.")
+        elif not groq_api_key:
+            st.error("❌ Please provide your Groq API key.")
         else:
             with st.spinner("Fetching answer..."):
                 try:
+                    # Encrypt the API key
+                    encrypted_api_key = encrypt_api_key(groq_api_key)
+                    if not encrypted_api_key:
+                        st.warning("Encryption failed, trying direct API key")
+                        encrypted_api_key = groq_api_key  # Fallback to direct API key
+                    
                     response = requests.post(
                         f"{BACKEND_URL}/query/",
                         json={
                             "query": query,
                             "model_name": selected_model,
                             "session_id": st.session_state.session_id,
+                            "encrypted_api_key": encrypted_api_key,
                             # LLM parameters
                             "temperature": temperature,
                             "top_p": top_p,
@@ -279,7 +361,18 @@ with main_col:
 
 # Right Sidebar
 with right_sidebar:
-    st.markdown('<div class="debug-header">🔍 Debug Information</div>', unsafe_allow_html=True)
+    #st.markdown('<div class="debug-header">🔍 Debug Information</div>', unsafe_allow_html=True)
+    
+    # Add encryption debug info
+    #with st.expander("🔐 Encryption Debug", expanded=False):
+    #    st.write("Encryption Key Status:", "Available" if encryption_key else "Not Available")
+    #    if "encryption_key" in st.session_state:
+    #        # Only show first few characters for security
+    #        st.write("Key (first 5 chars):", st.session_state["encryption_key"][:5] + "...")
+    #    
+    #    if "last_encrypted" in st.session_state:
+    #        # Only show first few characters for security
+    #        st.write("Last encrypted value (first 10 chars):", st.session_state["last_encrypted"][:10] + "...")
     
     # Show the most recent prompt sections if available
     if st.session_state.last_prompt_sections:

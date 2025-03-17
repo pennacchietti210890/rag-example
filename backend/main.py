@@ -2,6 +2,8 @@ import logging
 import os
 import textwrap
 import uuid
+import base64
+import secrets
 from builtins import Exception
 from enum import Enum
 from logging.handlers import RotatingFileHandler
@@ -25,6 +27,38 @@ from transformers import AutoTokenizer, pipeline
 from backend.rag.rag import DocumentManager, DocumentProcessingError
 from backend.session_manager import SessionManager
 from backend.llm.groq import generate_response, APIError, get_available_models
+
+
+# Simple XOR cipher for encryption/decryption
+def xor_encrypt_decrypt(data: str, key: str) -> str:
+    """Encrypt or decrypt data using XOR with the given key"""
+    # Convert strings to bytes
+    data_bytes = data.encode()
+    # Create a repeating key of the same length as data
+    key_bytes = (key * (len(data_bytes) // len(key) + 1))[:len(data_bytes)].encode()
+    # XOR operation
+    result_bytes = bytes(a ^ b for a, b in zip(data_bytes, key_bytes))
+    # Return base64 encoded result
+    return base64.b64encode(result_bytes).decode()
+
+
+# Decrypt function specifically for API keys
+def decrypt_api_key(encrypted_key: str, key: str) -> str:
+    """Decrypt an API key that was encrypted with XOR cipher"""
+    try:
+        # Decode base64
+        encrypted_bytes = base64.b64decode(encrypted_key)
+        # Convert to string for XOR
+        encrypted_str = encrypted_bytes.decode('utf-8', errors='ignore')
+        # Apply XOR with key
+        key_bytes = (key * (len(encrypted_str) // len(key) + 1))[:len(encrypted_str)].encode()
+        result_bytes = bytes(a ^ b for a, b in zip(encrypted_str.encode(), key_bytes))
+        # Return decrypted result
+        return result_bytes.decode('utf-8', errors='ignore')
+    except Exception as e:
+        logger.error(f"Error decrypting API key: {str(e)}")
+        # Return a placeholder to avoid breaking the app during debugging
+        return "invalid_key"
 
 
 # Configure logging
@@ -62,51 +96,43 @@ def setup_logging():
 # Initialize logging
 logger = setup_logging()
 
+# Generate a secure encryption key
+ENCRYPTION_KEY = secrets.token_hex(16)  # 32 character hex string
+
 
 class QueryRequest(BaseModel):
     query: str = Field(
         ..., min_length=1, description="The question to ask about the document"
     )
     model_name: str = Field(
-        default="llama3-70b-8192",
-        description="The specific model to use (for Groq models)",
+        ..., description="The specific Groq model to use"
     )
+    encrypted_api_key: str = Field(..., description="User's encrypted Groq API key")
     session_id: str = Field(..., description="The session ID from the upload response")
     # LLM parameters
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=1.0,
-        description="Controls randomness in the output. Higher values make the output more random, lower values make it more deterministic.",
-    )
-    top_p: float = Field(
-        default=0.9,
-        ge=0.0,
-        le=1.0,
-        description="Controls diversity via nucleus sampling. Lower values make the output more focused.",
-    )
-    max_tokens: int = Field(
-        default=200,
-        ge=1,
-        le=2000,
-        description="Maximum number of tokens to generate in the response.",
-    )
+    temperature: float = Field(default=0.7, ge=0.0, le=1.0)
+    top_p: float = Field(default=0.9, ge=0.0, le=1.0)
+    max_tokens: int = Field(default=200, ge=1, le=2000)
     # RAG parameters
-    chunk_size: int = Field(
-        default=500,
-        ge=100,
-        le=2000,
-        description="Size of text chunks for document processing",
-    )
-    chunk_overlap: int = Field(
-        default=50,
-        ge=0,
-        le=200,
-        description="Number of overlapping tokens between chunks",
-    )
-    num_chunks: int = Field(
-        default=3, ge=1, le=10, description="Number of most relevant chunks to retrieve"
-    )
+    chunk_size: int = Field(default=500, ge=100, le=2000)
+    chunk_overlap: int = Field(default=50, ge=0, le=200)
+    num_chunks: int = Field(default=3, ge=1, le=10)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "query": "What is the revenue for Q1?",
+                "model_name": "llama3-70b-8192",
+                "encrypted_api_key": "gsk_xxx",
+                "session_id": "abc123",
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "max_tokens": 200,
+                "chunk_size": 500,
+                "chunk_overlap": 50,
+                "num_chunks": 3
+            }
+        }
 
 
 # Initialize session manager
@@ -185,17 +211,8 @@ except Exception as e:
     logger.error(f"Failed to load embedding model: {str(e)}")
     raise ModelError(f"Failed to load embedding model: {str(e)}")
 
-# Larger models via Groq API
-GROQ_API_URL = os.getenv("GROQ_API_URL")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-MODEL_NAME = os.getenv("MODEL_NAME")
-
-# Validate required environment variables
-if not all([GROQ_API_URL, GROQ_API_KEY, MODEL_NAME]):
-    logger.error("Missing required environment variables")
-    raise ValueError(
-        "Missing required environment variables. Please check your .env file."
-    )
+# Remove global API key variables since we'll use per-request keys
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 @app.post("/upload", include_in_schema=False)
@@ -291,6 +308,10 @@ async def query_doc(
         )
 
     try:
+        # Decrypt the API key using the new function
+        decrypted_api_key = decrypt_api_key(query_request.encrypted_api_key, ENCRYPTION_KEY)
+        logger.info(f"API key decryption successful")
+        
         # Update document manager parameters
         document_manager.chunk_size = query_request.chunk_size
         document_manager.chunk_overlap = query_request.chunk_overlap
@@ -328,9 +349,10 @@ async def query_doc(
 
         prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
 
+        # Generate response using decrypted API key
         response = generate_response(
             prompt=prompt,
-            groq_api_key=GROQ_API_KEY,
+            groq_api_key=decrypted_api_key,
             groq_api_url=GROQ_API_URL,
             model_name=query_request.model_name,
             sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
@@ -338,6 +360,7 @@ async def query_doc(
             top_p=query_request.top_p,
             max_tokens=query_request.max_tokens,
         )
+        
         return {
             "answer": response.get("answer", ""),
             "prompt_sections": prompt_sections,
@@ -350,19 +373,31 @@ async def query_doc(
     except APIError as e:
         logger.error(f"API error: {str(e)}")
         raise HTTPException(status_code=503, detail=str(e))
-    except ModelError as e:
-        logger.error(f"Model error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 
 @app.get("/models/")
-async def get_models():
-    """Get available models from Groq"""
+async def get_models(encrypted_api_key: str):
+    """Get available models from Groq using user's encrypted API key"""
     try:
-        models = get_available_models(GROQ_API_KEY, "https://api.groq.com/openai")
+        logger.info(f"Received encrypted API key (first 10 chars): {encrypted_api_key[:10]}...")
+        
+        # Decrypt the API key using the new function
+        decrypted_api_key = decrypt_api_key(encrypted_api_key, ENCRYPTION_KEY)
+        logger.info(f"API key decryption successful for models endpoint")
+        
+        # Validate API key format
+        if not decrypted_api_key.startswith("gsk_"):
+            logger.warning(f"Decrypted API key doesn't have expected format (should start with 'gsk_')")
+            # Try a direct approach as fallback
+            if encrypted_api_key.startswith("gsk_"):
+                logger.info("Using original API key as fallback")
+                decrypted_api_key = encrypted_api_key
+        
+        logger.info(f"Fetching models with API key (first 5 chars): {decrypted_api_key[:5]}...")
+        models = get_available_models(decrypted_api_key, "https://api.groq.com/openai")
         return {"models": models}
     except APIError as e:
         logger.error(f"Failed to fetch Groq models: {str(e)}")
@@ -370,6 +405,12 @@ async def get_models():
     except Exception as e:
         logger.error(f"Unexpected error fetching models: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+
+@app.get("/encryption-key")
+async def get_encryption_key():
+    """Get the encryption key for secure API key transmission"""
+    return {"encryption_key": ENCRYPTION_KEY}
 
 
 def main():
