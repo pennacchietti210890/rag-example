@@ -102,9 +102,10 @@ st.markdown(
             font-style: italic;
         }
         .section-header {
-            font-size: 1.2em;
+            font-size: 1.8em;
             margin-top: 2em;
             margin-bottom: 1em;
+            font-weight: 600;
         }
         .debug-header {
             font-size: 1em;
@@ -185,6 +186,169 @@ st.markdown(
         /* Adjust top padding to account for hidden header */
         .main .block-container {
             padding-top: 1rem !important;
+        }
+        
+        /* Custom styling for the question input field - bigger, rounded, black */
+        [data-testid="stTextInput"] > div > div > input,
+        [data-testid="stTextArea"] > div > div > textarea {
+            background-color: var(--gray-700, #2e3440) !important;
+            color: white !important;
+            font-size: 16px !important;
+            border-radius: 10px !important;
+            border: 1px solid #333 !important;
+            padding: 20px !important;
+            min-height: 70px !important;
+            width: 100% !important;
+        }
+        
+        /* Make the text start at the top of the input box rather than middle */
+        [data-testid="stTextInput"] > div > div,
+        [data-testid="stTextArea"] > div > div {
+            align-items: flex-start !important;
+        }
+        
+        /* Custom styling for the Ask button - gray and wider */
+        .stButton > button {
+            background-color: var(--gray-700, #2e3440) !important;
+            color: white !important;
+            border: 1px solid #333 !important;
+            border-radius: 10px !important;
+            font-size: 16px !important;
+            font-weight: bold !important;
+            min-width: 150px !important;
+            padding: 10px 20px !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        /* Hover effect for the Ask button */
+        .stButton > button:hover {
+            background-color: #252525 !important;
+            border-color: #555 !important;
+        }
+        
+        /* Specific style for the chat header */
+        .chat-header {
+            font-size: 28px;
+            margin-top: 1em;
+            margin-bottom: 1.2em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Style for emoji in headers to align with text */
+        .header-emoji {
+            font-size: 28px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        /* NEW: Reduce the size of sidebar elements */
+        [data-testid="stSidebar"] {
+            padding-top: 0.5rem !important;
+        }
+        
+        /* Make sidebar text smaller */
+        [data-testid="stSidebar"] .stMarkdown, 
+        [data-testid="stSidebar"] .stMarkdown p, 
+        [data-testid="stSidebar"] .stMarkdown h1, 
+        [data-testid="stSidebar"] .stMarkdown h2, 
+        [data-testid="stSidebar"] .stMarkdown h3 {
+            font-size: 14px !important;
+        }
+        
+        /* Make sidebar section headers smaller */
+        [data-testid="stSidebar"] .section-header {
+            font-size: 16px !important;
+            margin-top: 1em !important;
+            margin-bottom: 0.5em !important;
+        }
+        
+        /* Make sidebar input fields and buttons smaller */
+        [data-testid="stSidebar"] [data-testid="stTextInput"] > div > div > input,
+        [data-testid="stSidebar"] .stButton > button,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"],
+        [data-testid="stSidebar"] .stSlider {
+            font-size: 12px !important;
+            padding: 8px !important;
+            min-height: auto !important;
+        }
+        
+        /* Reduce spacing between sidebar elements */
+        [data-testid="stSidebar"] > div > div > div > div > div {
+            margin-bottom: 0.5rem !important;
+        }
+        
+        /* Make sidebar headers smaller */
+        [data-testid="stSidebar"] h1, 
+        [data-testid="stSidebar"] h2, 
+        [data-testid="stSidebar"] h3, 
+        [data-testid="stSidebar"] h4 {
+            font-size: 16px !important;
+            margin-top: 0.75em !important;
+            margin-bottom: 0.5em !important;
+        }
+        
+        /* Adjust sidebar header emoji */
+        [data-testid="stSidebar"] .header-emoji {
+            font-size: 16px !important;
+        }
+        
+        /* Fix right sidebar positioning to prevent overlap */
+        .row-widget > [data-testid="column"]:nth-child(2) {
+            padding-left: 15px !important;
+            margin-left: 10px !important;
+        }
+        
+        /* Last Prompt section in right sidebar - better positioning */
+        [data-testid="column"] > div > [data-testid="stExpander"] {
+            margin-left: 15px !important;
+            max-width: 95% !important;
+            float: right !important;
+        }
+        
+        /* NEW: Extreme right sidebar positioning */
+        /* Create a fixed position right sidebar */
+        .rightmost-sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            right: 0 !important;
+            width: 350px !important;
+            height: 100vh !important;
+            background-color: #0e1117 !important;
+            padding: 20px !important;
+            z-index: 999 !important;
+            overflow-y: auto !important;
+            box-shadow: -3px 0 10px rgba(0,0,0,0.2) !important;
+            border-left: 1px solid #333 !important;
+        }
+        
+        /* Style for prompt box in extreme right sidebar */
+        .rightmost-sidebar .prompt-box {
+            background-color: #1a1a1a !important;
+            border-radius: 5px !important;
+            padding: 10px !important;
+            margin-top: 10px !important;
+            border-left: 3px solid #3a3a3a !important;
+            font-size: 11px !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+        }
+        
+        /* Style for the expander in extreme right sidebar */
+        .rightmost-sidebar .st-expander {
+            border: none !important;
+            background-color: transparent !important;
+        }
+        
+        /* Adjust the main content area to make room for the extreme right sidebar */
+        [data-testid="column"]:nth-child(1) {
+            margin-right: 350px !important;
+            width: calc(100% - 350px) !important;
+        }
+        
+        /* Hide the original right sidebar column */
+        [data-testid="column"]:nth-child(2) {
+            display: none !important;
         }
     </style>
     """,
@@ -411,13 +575,22 @@ with main_col:
 
     # Chat-Style Q&A Section
     st.markdown(
-        '<div class="section-header">💬 Chat with the Report</div>',
+        '<div class="chat-header"><span class="header-emoji"></span>Chat with your Document</div>',
         unsafe_allow_html=True,
     )
-    query = st.text_input(
-        "Enter your question:", help="Type your question about the uploaded document"
-    )
-    submit_button = st.button("Ask")
+    
+    # Create a nice layout for the chat input and button
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        query = st.text_area(
+            "Enter your question:", 
+            help="Type your question about the uploaded document",
+            placeholder="Ask a question about the document...",
+            label_visibility="collapsed",
+            height=100
+        )
+    with col2:
+        submit_button = st.button("Ask", use_container_width=True)
 
     if submit_button and query:
         if not st.session_state.session_id:
@@ -483,7 +656,7 @@ with main_col:
     # Add PDF viewer below chat history
     if uploaded_file and st.session_state.session_id:
         st.markdown(
-            '<div class="section-header">📄 Document with Highlighted Passages</div>',
+            '<div class="chat-header"><span class="header-emoji">📄</span>Document with Highlighted Passages</div>',
             unsafe_allow_html=True,
         )
 
@@ -685,35 +858,35 @@ with main_col:
             mime="application/pdf",
         )
 
-# Right Sidebar
+# Remove the custom div approach and use pure HTML/JavaScript injection to create the extreme right sidebar
+right_sidebar_html = """
+<div class="rightmost-sidebar">
+    <h4 style="color: white; font-size: 16px; margin-bottom: 10px;">📝 Last Prompt</h4>
+    <div class="prompt-box">
+"""
+
+# Add the prompt sections to the HTML if available
+if st.session_state.last_prompt_sections:
+    for i, section in enumerate(st.session_state.last_prompt_sections):
+        if i == 0:  # System prompt
+            right_sidebar_html += f'<div class="prompt-section">{section}</div>'
+        elif i < len(st.session_state.last_prompt_sections) - 1:  # Passages
+            highlight_class = f"highlight-{i}" if i <= 5 else "highlight-1"
+            right_sidebar_html += f'<div class="prompt-section {highlight_class}">{section}</div>'
+        else:  # Question and answer
+            right_sidebar_html += f'<div class="prompt-section">{section}</div>'
+else:
+    right_sidebar_html += '<div class="prompt-section">No prompt available yet. Ask a question to see the prompt here.</div>'
+
+# Close the rightmost sidebar HTML
+right_sidebar_html += """
+    </div>
+</div>
+"""
+
+# Inject the rightmost sidebar HTML directly
+st.markdown(right_sidebar_html, unsafe_allow_html=True)
+
+# Empty the original right_sidebar column to prevent duplicate content
 with right_sidebar:
-    # st.markdown('<div class="debug-header">🔍 Debug Information</div>', unsafe_allow_html=True)
-
-    # Add encryption debug info
-    # with st.expander("🔐 Encryption Debug", expanded=False):
-    #    st.write("Encryption Key Status:", "Available" if encryption_key else "Not Available")
-    #    if "encryption_key" in st.session_state:
-    #        # Only show first few characters for security
-    #        st.write("Key (first 5 chars):", st.session_state["encryption_key"][:5] + "...")
-    #
-    #    if "last_encrypted" in st.session_state:
-    #        # Only show first few characters for security
-    #        st.write("Last encrypted value (first 10 chars):", st.session_state["last_encrypted"][:10] + "...")
-
-    # Show the most recent prompt sections if available
-    if st.session_state.last_prompt_sections:
-        with st.expander("📝 Last Prompt", expanded=True):
-            prompt_html = ""
-            for i, section in enumerate(st.session_state.last_prompt_sections):
-                if i == 0:  # System prompt
-                    prompt_html += f'<div class="prompt-section">{section}</div>'
-                elif i < len(st.session_state.last_prompt_sections) - 1:  # Passages
-                    highlight_class = f"highlight-{i}" if i <= 5 else "highlight-1"
-                    prompt_html += (
-                        f'<div class="prompt-section {highlight_class}">{section}</div>'
-                    )
-                else:  # Question and answer
-                    prompt_html += f'<div class="prompt-section">{section}</div>'
-            st.markdown(
-                f'<div class="prompt-box">{prompt_html}</div>', unsafe_allow_html=True
-            )
+    pass
