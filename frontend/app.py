@@ -128,6 +128,64 @@ st.markdown(
             display: block;
             margin-bottom: 0.5em;
         }
+        
+        /* UPDATED styles for UI color changes */
+        /* Force main area to have gray background */
+        .main {
+            background-color: #252525 !important;
+        }
+        
+        /* Force sidebar to have black background */
+        [data-testid="stSidebar"] {
+            background-color: #0e1117 !important;
+        }
+        
+        /* Target all major sections within the main area to ensure gray background */
+        .css-18e3th9, .css-1d391kg, .css-12oz5g7 {
+            background-color: #252525 !important;
+        }
+        
+        /* Make sidebar content explicitly black */
+        .sidebar .sidebar-content, [data-testid="stSidebar"] > div {
+            background-color: #0e1117 !important;
+        }
+        
+        /* Ensure content is centrally aligned */
+        .block-container {
+            max-width: 1000px !important;
+            padding-left: 5% !important;
+            padding-right: 5% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        
+        /* Center content when sidebar is collapsed */
+        [data-testid="stSidebar"][aria-expanded="false"] + .main .block-container {
+            padding-left: 5% !important;
+            padding-right: 5% !important;
+        }
+        
+        /* Center the content in columns */
+        .row-widget.stHorizontal {
+            justify-content: center !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        
+        /* Apply styling to stApp to ensure full coverage */
+        .stApp {
+            background-color: #252525 !important;
+        }
+        
+        /* Hide the default Streamlit header with deploy button and menu */
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Adjust top padding to account for hidden header */
+        .main .block-container {
+            padding-top: 1rem !important;
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -153,6 +211,11 @@ if "last_passages" not in st.session_state:
 if "passage_page_map" not in st.session_state:
     st.session_state.passage_page_map = []
 
+# Initialize RAG parameters with default values
+# These need to be defined before the sidebar where file upload happens
+chunk_size = 500
+chunk_overlap = 50
+num_chunks = 3
 
 def fetch_available_models(api_key: str = None):
     """Fetch available models from the backend if not already fetched"""
@@ -186,6 +249,48 @@ def fetch_available_models(api_key: str = None):
 
 # Sidebar
 with st.sidebar:
+    # Add document upload section to the top of the sidebar
+    st.markdown(
+        '<div class="section-header">🗂 Upload a Document (PDF)</div>',
+        unsafe_allow_html=True,
+    )
+    uploaded_file = st.file_uploader(
+        "Choose a PDF file", type=["pdf"], help="Upload a document for analysis"
+    )
+
+    if uploaded_file and (st.session_state.uploaded_file_name != uploaded_file.name):
+        with st.spinner("Uploading and processing file..."):
+            try:
+                files = {
+                    "file": (
+                        uploaded_file.name,
+                        uploaded_file.getvalue(),
+                        "application/pdf",
+                    )
+                }
+                # Add RAG parameters to the upload request
+                data = {
+                    "chunk_size": chunk_size,
+                    "chunk_overlap": chunk_overlap,
+                    "num_chunks": num_chunks,
+                }
+                response = requests.post(
+                    f"{BACKEND_URL}/upload/",
+                    files=files,
+                    data=data,  # Pass RAG parameters as form data
+                )
+
+                if response.status_code == 200:
+                    st.session_state.session_id = response.json().get("session_id")
+                    st.session_state.uploaded_file_name = uploaded_file.name
+                    st.success("✅ File uploaded and indexed successfully!")
+                else:
+                    st.error(f"❌ Failed to upload file: {response.text}")
+            except Exception as e:
+                st.error(f"❌ Error uploading file: {str(e)}")
+    
+    st.markdown("---")  # Visual separator
+    
     st.header("🔧 Model Settings")
 
     # Add secure API key input
@@ -301,48 +406,8 @@ main_col, right_sidebar = st.columns([3, 1])
 
 with main_col:
     # Main content
-    st.title("🤖 RAG Playground")
-    st.markdown("**Upload a document (PDF) and ask questions about its content!**")
-
-    # File Upload Section
-    st.markdown(
-        '<div class="section-header">🗂 Upload a Document (PDF)</div>',
-        unsafe_allow_html=True,
-    )
-    uploaded_file = st.file_uploader(
-        "Choose a PDF file", type=["pdf"], help="Upload a document for analysis"
-    )
-
-    if uploaded_file and (st.session_state.uploaded_file_name != uploaded_file.name):
-        with st.spinner("Uploading and processing file..."):
-            try:
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file.getvalue(),
-                        "application/pdf",
-                    )
-                }
-                # Add RAG parameters to the upload request
-                data = {
-                    "chunk_size": chunk_size,
-                    "chunk_overlap": chunk_overlap,
-                    "num_chunks": num_chunks,
-                }
-                response = requests.post(
-                    f"{BACKEND_URL}/upload/",
-                    files=files,
-                    data=data,  # Pass RAG parameters as form data
-                )
-
-                if response.status_code == 200:
-                    st.session_state.session_id = response.json().get("session_id")
-                    st.session_state.uploaded_file_name = uploaded_file.name
-                    st.success("✅ File uploaded and indexed successfully!")
-                else:
-                    st.error(f"❌ Failed to upload file: {response.text}")
-            except Exception as e:
-                st.error(f"❌ Error uploading file: {str(e)}")
+    #st.title("RAG Playground")
+    #st.markdown("**Upload a document (PDF) and ask questions about its content!**")
 
     # Chat-Style Q&A Section
     st.markdown(
