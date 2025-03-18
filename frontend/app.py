@@ -246,9 +246,9 @@ with st.sidebar:
     # Add RAG options radio button
     rag_option = st.radio(
         "Select RAG Mode:",
-        options=["No RAG", "RAG", "Self-RAG"],
+        options=["RAG", "Self-RAG"],
         index=1,  # Default to RAG
-        help="Choose retrieval mode: No RAG (no document retrieval), RAG (standard retrieval), or Self-RAG (model decides when to retrieve).",
+        help="Choose retrieval mode: RAG (standard retrieval), or Self-RAG (model decides when to retrieve).",
     )
 
     # Initialize rag_enabled in session state if not already present
