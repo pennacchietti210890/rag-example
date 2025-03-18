@@ -516,7 +516,7 @@ with st.sidebar:
     rag_option = st.radio(
         "Select RAG Mode:",
         options=["RAG", "Self-RAG"],
-        index=1,  # Default to RAG
+        index=0,  # Default to RAG
         help="Choose retrieval mode: RAG (standard retrieval), or Self-RAG (model decides when to retrieve).",
     )
 

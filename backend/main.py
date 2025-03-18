@@ -344,12 +344,12 @@ async def query_doc(
 
         # Split the prompt into sections for highlighting
         prompt_sections = [
-            "You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n",
+            "You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n",
             *[f"Passage {i+1}:\n{chunk}\n" for i, chunk in enumerate(small_chunks)],
             f"\n\nUser Question: {query_request.query}\n\nAnswer:",
         ]
 
-        prompt = f"You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
+        prompt = f"You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
 
         # Generate response using decrypted API key
         response = generate_response(
@@ -357,7 +357,7 @@ async def query_doc(
             groq_api_key=decrypted_api_key,
             groq_api_url=GROQ_API_URL,
             model_name=query_request.model_name,
-            sys_prompt="You are a financial analyst. You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
+            sys_prompt="You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else.",
             temperature=query_request.temperature,
             top_p=query_request.top_p,
             max_tokens=query_request.max_tokens,
