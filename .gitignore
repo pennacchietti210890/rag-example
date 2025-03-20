@@ -1,3 +1,4 @@
+__pycache__/
 .env
 models/
 data/
@@ -9,3 +10,5 @@ temp/
 *.csv
 *.jsonl
 *.jsonl.gz
+.pytest_cache/
+.mypy_cache/
