@@ -6,6 +6,8 @@ from typing import Dict, List, Optional
 import requests
 from dotenv import load_dotenv
 
+from langchain_groq import ChatGroq
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,3 +97,22 @@ def generate_response(
     except requests.RequestException as e:
         logger.error(f"Groq API request failed: {str(e)}")
         raise APIError(f"Error calling Groq API: {str(e)}")
+
+
+def langchain_groq_generate_response(
+    prompt: str,
+    groq_api_key: str,
+    model_name: str,
+    sys_prompt: str,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    max_tokens: int = 200,
+) -> Dict[str, str]:
+    llm = ChatGroq(
+        groq_api_key=groq_api_key,
+        model_name=model_name,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+    )
+    return llm

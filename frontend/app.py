@@ -133,7 +133,7 @@ st.markdown(
         /* UPDATED styles for UI color changes */
         /* Force main area to have gray background */
         .main {
-            background-color: #252525 !important;
+            background-color: #222222 !important;
         }
         
         /* Force sidebar to have black background */
@@ -143,7 +143,7 @@ st.markdown(
         
         /* Target all major sections within the main area to ensure gray background */
         .css-18e3th9, .css-1d391kg, .css-12oz5g7 {
-            background-color: #252525 !important;
+            background-color: #222222 !important;
         }
         
         /* Make sidebar content explicitly black */
@@ -175,7 +175,7 @@ st.markdown(
         
         /* Apply styling to stApp to ensure full coverage */
         .stApp {
-            background-color: #252525 !important;
+            background-color: #222222 !important;
         }
         
         /* Hide the default Streamlit header with deploy button and menu */
@@ -188,17 +188,49 @@ st.markdown(
             padding-top: 1rem !important;
         }
         
-        /* Custom styling for the question input field - bigger, rounded, black */
+        /* Custom styling for the question input field - bigger, more rounded, slightly darker gray */
         [data-testid="stTextInput"] > div > div > input,
         [data-testid="stTextArea"] > div > div > textarea {
-            background-color: var(--gray-700, #2e3440) !important;
+            background-color: #2a2a2a !important; /* Slightly darker than #252525 background */
             color: white !important;
             font-size: 16px !important;
-            border-radius: 10px !important;
+            border-radius: 18px !important; /* More rounded corners */
             border: 1px solid #333 !important;
             padding: 20px !important;
             min-height: 70px !important;
             width: 100% !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1) !important; /* Subtle inner shadow for depth */
+            transition: all 0.2s ease !important;
+        }
+        
+        /* Add subtle hover effect */
+        [data-testid="stTextArea"] > div > div > textarea:hover {
+            background-color: #303030 !important;
+            border-color: #444 !important;
+        }
+        
+        /* Add focus effect */
+        [data-testid="stTextArea"] > div > div > textarea:focus {
+            border-color: #000000 !important; /* Changed from #555 to pure black */
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.15) !important; /* Changed shadow to be darker */
+            outline: none !important;
+        }
+        
+        /* Additional fix to prevent any red outlines on focus for all input elements */
+        *:focus {
+            outline-color: black !important;
+            box-shadow: none !important;
+        }
+        
+        /* Override any default Streamlit focus styles */
+        [data-testid="stTextArea"] > div {
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        [data-testid="stTextArea"] > div > div > textarea:focus-visible {
+            outline: none !important;
+            border-color: #000000 !important;
         }
         
         /* Make the text start at the top of the input box rather than middle */
@@ -231,8 +263,8 @@ st.markdown(
             font-size: 28px;
             margin-top: 1em;
             margin-bottom: 1.2em;
-            font-weight: 700;
-            letter-spacing: 0.5px;
+            font-weight: 600;
+            letter-spacing: 0.38px;
         }
         
         /* Style for emoji in headers to align with text */
@@ -381,6 +413,7 @@ chunk_size = 500
 chunk_overlap = 50
 num_chunks = 3
 
+
 def fetch_available_models(api_key: str = None):
     """Fetch available models from the backend if not already fetched"""
     if not st.session_state.models_fetched and api_key:
@@ -452,9 +485,9 @@ with st.sidebar:
                     st.error(f"❌ Failed to upload file: {response.text}")
             except Exception as e:
                 st.error(f"❌ Error uploading file: {str(e)}")
-    
+
     st.markdown("---")  # Visual separator
-    
+
     st.header("🔧 Model Settings")
 
     # Add secure API key input
@@ -570,24 +603,24 @@ main_col, right_sidebar = st.columns([3, 1])
 
 with main_col:
     # Main content
-    #st.title("RAG Playground")
-    #st.markdown("**Upload a document (PDF) and ask questions about its content!**")
+    # st.title("RAG Playground")
+    # st.markdown("**Upload a document (PDF) and ask questions about its content!**")
 
     # Chat-Style Q&A Section
     st.markdown(
         '<div class="chat-header"><span class="header-emoji"></span>Chat with your Document</div>',
         unsafe_allow_html=True,
     )
-    
+
     # Create a nice layout for the chat input and button
     col1, col2 = st.columns([4, 1])
     with col1:
         query = st.text_area(
-            "Enter your question:", 
+            "Enter your question:",
             help="Type your question about the uploaded document",
             placeholder="Ask a question about the document...",
             label_visibility="collapsed",
-            height=100
+            height=100,
         )
     with col2:
         submit_button = st.button("Ask", use_container_width=True)
@@ -872,7 +905,9 @@ if st.session_state.last_prompt_sections:
             right_sidebar_html += f'<div class="prompt-section">{section}</div>'
         elif i < len(st.session_state.last_prompt_sections) - 1:  # Passages
             highlight_class = f"highlight-{i}" if i <= 5 else "highlight-1"
-            right_sidebar_html += f'<div class="prompt-section {highlight_class}">{section}</div>'
+            right_sidebar_html += (
+                f'<div class="prompt-section {highlight_class}">{section}</div>'
+            )
         else:  # Question and answer
             right_sidebar_html += f'<div class="prompt-section">{section}</div>'
 else:

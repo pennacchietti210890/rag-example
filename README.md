@@ -1,6 +1,6 @@
 # RAG Example
 
-A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This system allows users to upload a pdf document or report and ask questions about their contents via open source LLMs available via Groq (the user needs a free API from Groq).
+A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This system allows users to upload a pdf document and ask questions about their contents via open source LLMs available via Groq (the user needs a free API from Groq), showing you how setting up different LLM or RAG parameters influence what kind of context is retrieved for generation.
 
 ## UI Preview
 
@@ -29,7 +29,7 @@ cd rag-exapmle
 
 2. Install Poetry if you don't have it already:
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
+pip isntall poetry
 ```
 
 3. Install dependencies using Poetry:

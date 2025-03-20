@@ -1,10 +1,12 @@
 import logging
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
+from backend.rag.self_rag.self_rag_graph import self_rag_workflow
+from langchain import hub
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,27 @@ class DocumentManager:
             query_embedding = embedding_model.encode([query])
             D, I = self._index.search(np.array(query_embedding), k=k)
             return [self._chunks[i] for i in I[0]]
+
+    def search_chunks_self_rag(
+        self,
+        query: str,
+        embedding_model: SentenceTransformer,
+        num_chunks: Optional[int] = None,
+        model_name: str = "groq model not specified",
+        api_key: str = "api key not available",
+    ) -> Tuple[str, List[str]]:
+        """Search for relevant chunks using the query and a self-rag pipeline"""
+        with self._lock:
+            if not self._is_initialized or self._index is None:
+                raise DocumentProcessingError("No document has been loaded and indexed")
+
+        initial_documents = self.search_chunks(query, embedding_model, num_chunks)
+        workflow = self_rag_workflow()
+        rag_prompt = hub.pull("rlm/rag-prompt")
+        graph_response = workflow.invoke(
+            {"question": query, "documents": initial_documents, "model_name": model_name, "api_key": api_key, "prompt": rag_prompt}
+        )
+        return graph_response["generation"], graph_response["documents"]
 
     def reset(self):
         """Reset the document manager state"""
