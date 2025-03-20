@@ -29,7 +29,7 @@ cd rag-exapmle
 
 2. Install Poetry if you don't have it already:
 ```bash
-pip isntall poetry
+pip install poetry
 ```
 
 3. Install dependencies using Poetry:

@@ -22,7 +22,7 @@ Make sure you have all the required dependencies installed. Since this project u
 
 ```bash
 # If you don't have Poetry installed
-curl -sSL https://install.python-poetry.org | python3 -
+pip install poetry
 
 # Install dependencies
 poetry install
