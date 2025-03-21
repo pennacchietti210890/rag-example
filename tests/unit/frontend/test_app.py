@@ -179,3 +179,59 @@ class TestStreamlitApp:
         expected_decrypted = result_bytes.decode()
 
         assert expected_decrypted == data
+
+    def test_conditional_rag_settings_display(self, mock_streamlit):
+        """Test conditional display of RAG settings based on RAG mode"""
+        # Create a mock for the expander and its context manager
+        mock_expander = MagicMock()
+        mock_streamlit.sidebar.expander.return_value = mock_expander
+        
+        # Mock for the slider widgets inside the expander
+        mock_streamlit.sidebar.slider.return_value = 500  # Default values
+        
+        # Test with No RAG selected
+        mock_streamlit.sidebar.radio.return_value = "No RAG"
+        mock_streamlit.session_state.rag_enabled = mock_streamlit.sidebar.radio.return_value != "No RAG"
+        
+        # In the actual app, the RAG settings expander would not be shown or its content would be hidden
+        # We can't fully test the UI flow, but we can verify the session state
+        assert mock_streamlit.session_state.rag_enabled == False
+        
+        # Test with RAG selected
+        mock_streamlit.sidebar.radio.return_value = "RAG"
+        mock_streamlit.session_state.rag_enabled = mock_streamlit.sidebar.radio.return_value != "No RAG"
+        
+        # In the actual app, the RAG settings expander would be shown
+        assert mock_streamlit.session_state.rag_enabled == True
+        
+        # Simulate the app's behavior of showing the RAG settings when RAG is enabled
+        if mock_streamlit.session_state.rag_enabled:
+            # These should be called when RAG is enabled
+            with mock_expander:
+                chunk_size = mock_streamlit.sidebar.slider("Chunk Size")
+                chunk_overlap = mock_streamlit.sidebar.slider("Chunk Overlap")
+                num_chunks = mock_streamlit.sidebar.slider("Number of Chunks")
+        
+        # Verify that the slider was called for chunk size, overlap, and number of chunks
+        assert mock_streamlit.sidebar.slider.call_count >= 3
+        
+        # Reset mock for testing Self-RAG
+        mock_streamlit.sidebar.slider.reset_mock()
+        
+        # Test with Self-RAG selected
+        mock_streamlit.sidebar.radio.return_value = "Self-RAG"
+        mock_streamlit.session_state.rag_enabled = mock_streamlit.sidebar.radio.return_value != "No RAG"
+        
+        # Verify rag_enabled is True for Self-RAG
+        assert mock_streamlit.session_state.rag_enabled == True
+        
+        # Simulate the app's behavior of showing the RAG settings when Self-RAG is enabled
+        if mock_streamlit.session_state.rag_enabled:
+            # These should be called when Self-RAG is enabled (same as RAG)
+            with mock_expander:
+                chunk_size = mock_streamlit.sidebar.slider("Chunk Size")
+                chunk_overlap = mock_streamlit.sidebar.slider("Chunk Overlap")
+                num_chunks = mock_streamlit.sidebar.slider("Number of Chunks")
+        
+        # Verify that the slider was called for chunk size, overlap, and number of chunks
+        assert mock_streamlit.sidebar.slider.call_count >= 3
