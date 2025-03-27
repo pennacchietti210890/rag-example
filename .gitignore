@@ -12,3 +12,9 @@ temp/
 *.jsonl.gz
 .pytest_cache/
 .mypy_cache/
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+crash.log
