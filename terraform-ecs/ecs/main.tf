@@ -11,6 +11,16 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
+resource "aws_cloudwatch_log_group" "backend" {
+  name              = "/ecs/backend"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "frontend" {
+  name              = "/ecs/frontend"
+  retention_in_days = 7
+}
+
 resource "aws_ecs_task_definition" "backend" {
   family                   = "backend-task"
   network_mode             = "awsvpc"
@@ -36,8 +46,39 @@ resource "aws_ecs_task_definition" "backend" {
           value = "production"
         }
       ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = "/ecs/backend"
+        awslogs-region        = "eu-north-1"
+        awslogs-stream-prefix = "ecs"
+      }
+    }
     }
   ])
+}
+
+resource "aws_service_discovery_private_dns_namespace" "main" {
+  name        = "rag-app.local"
+  description = "Private namespace for service discovery"
+  vpc         = var.vpc_id
+}
+
+resource "aws_service_discovery_service" "backend" {
+  name = "backend-service"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.main.id
+    dns_records {
+      type = "A"
+      ttl  = 10
+    }
+    routing_policy = "MULTIVALUE"
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
 }
 
 resource "aws_ecs_service" "backend" {
@@ -48,9 +89,13 @@ resource "aws_ecs_service" "backend" {
   desired_count   = 0
 
   network_configuration {
-    subnets         = var.public_subnets
+    subnets         = var.private_subnets
     security_groups = [aws_security_group.backend_sg.id]
-    assign_public_ip = true
+    assign_public_ip = false
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.backend.arn
   }
 }
 
@@ -64,7 +109,7 @@ resource "aws_security_group" "backend_sg" {
     from_port        = 8000
     to_port          = 8000
     protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -96,9 +141,17 @@ resource "aws_ecs_task_definition" "frontend" {
       environment = [
         {
           name  = "BACKEND_URL"
-          value = "http://13.61.177.237:8000" # replace this!
+          value = "http://backend-service.rag-app.local:8000" # replace this!
         }
       ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = "/ecs/frontend"
+        awslogs-region        = "eu-north-1"
+        awslogs-stream-prefix = "ecs"
+      }
+    }
     }
   ])
 }
@@ -112,7 +165,7 @@ resource "aws_security_group" "frontend_sg" {
     from_port   = 8501
     to_port     = 8501
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Public access for now
+    cidr_blocks = ["101.57.38.236/32"] # Public access for now
   }
 
   egress {
