@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, pipeline
 
-from backend.rag.rag import DocumentManager, DocumentProcessingError
+from backend.rag.rag import DocumentManager, DocumentProcessingError, DistanceMetric
 from backend.session_manager import SessionManager
 from backend.llm.groq import generate_response, APIError, get_available_models
 
@@ -120,6 +120,11 @@ class QueryRequest(BaseModel):
     # RAG mode parameters
     rag_enabled: bool = Field(default=True, description="Whether to use RAG or not")
     rag_mode: str = Field(default="rag", description="RAG mode: 'rag' or 'self-rag'")
+    # Distance metric for FAISS index
+    distance_metric: DistanceMetric = Field(
+        default="l2", 
+        description="Distance metric for FAISS index: 'l2' (Euclidean), 'ip' (Dot Product), 'cosine' (Cosine Similarity), or 'hamming' (Hamming Distance)"
+    )
 
     class Config:
         schema_extra = {
@@ -136,6 +141,7 @@ class QueryRequest(BaseModel):
                 "num_chunks": 3,
                 "rag_enabled": True,
                 "rag_mode": "rag",
+                "distance_metric": "l2"
             }
         }
 
@@ -145,7 +151,12 @@ session_manager = SessionManager()
 
 
 async def get_document_manager(
-    session_id: str, chunk_size: int = 500, chunk_overlap: int = 50, num_chunks: int = 3
+    session_id: str,
+    *,
+    chunk_size: int = 500,
+    chunk_overlap: int = 50,
+    num_chunks: int = 3,
+    distance_metric: DistanceMetric = "l2",
 ) -> DocumentManager:
     """Dependency function to get or create a document manager for the current session"""
     logger.info(f"Received request with session_id: {session_id}")
@@ -163,6 +174,7 @@ async def get_document_manager(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             num_chunks=num_chunks,
+            distance_metric=distance_metric,
         )
         session_manager._sessions[session_id] = document_manager
     else:
@@ -170,7 +182,7 @@ async def get_document_manager(
         document_manager.chunk_size = chunk_size
         document_manager.chunk_overlap = chunk_overlap
         document_manager.num_chunks = num_chunks
-
+        document_manager.distance_metric = distance_metric
     logger.info(f"Document manager initialized: {document_manager.is_initialized}")
     return document_manager
 
@@ -180,6 +192,7 @@ async def get_document_manager_dep(
     chunk_size: int = 500,
     chunk_overlap: int = 50,
     num_chunks: int = 3,
+    distance_metric: DistanceMetric = "l2",
 ) -> DocumentManager:
     """Dependency wrapper for get_document_manager"""
     return await get_document_manager(
@@ -187,6 +200,7 @@ async def get_document_manager_dep(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         num_chunks=num_chunks,
+        distance_metric=distance_metric,
     )
 
 
@@ -199,6 +213,7 @@ async def get_document_manager_for_query(
         chunk_size=query_request.chunk_size,
         chunk_overlap=query_request.chunk_overlap,
         num_chunks=query_request.num_chunks,
+        distance_metric=query_request.distance_metric,
     )
 
 
@@ -227,11 +242,12 @@ async def upload_file(
     chunk_size: int = Form(500),
     chunk_overlap: int = Form(50),
     num_chunks: int = Form(3),
+    distance_metric: DistanceMetric = Form("l2"),
     document_manager: DocumentManager = Depends(get_document_manager_dep),
 ):
     logger.info(f"Processing upload request for file: {file.filename}")
     logger.info(
-        f"RAG parameters - chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}, num_chunks: {num_chunks}"
+        f"RAG parameters - chunk_size: {chunk_size}, chunk_overlap: {chunk_overlap}, num_chunks: {num_chunks}, distance_metric: {distance_metric}"
     )
 
     if not file.filename.endswith(".pdf"):
@@ -254,14 +270,15 @@ async def upload_file(
         document_manager.chunk_size = chunk_size
         document_manager.chunk_overlap = chunk_overlap
         document_manager.num_chunks = num_chunks
+        document_manager.distance_metric = distance_metric
 
         # Process or reprocess document using document manager
         if document_manager.is_initialized:
             logger.info("Reprocessing document with new parameters")
-            result = document_manager.reprocess_document(embedding_model)
+            result = document_manager.reprocess_document(embedding_model, distance_metric)
         else:
             logger.info("Processing new document")
-            result = document_manager.process_document(text, embedding_model)
+            result = document_manager.process_document(text, embedding_model, distance_metric)
 
         logger.info(f"Successfully processed file with {result['num_chunks']} chunks")
 
@@ -302,7 +319,7 @@ async def query_doc(
     logger.info(f"Processing query request: {query_request.query[:50]}...")
     logger.info(f"Using session ID: {query_request.session_id}")
     logger.info(
-        f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}"
+        f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}, distance_metric: {query_request.distance_metric}"
     )
     logger.info(
         f"RAG mode: {query_request.rag_mode}, RAG enabled: {query_request.rag_enabled}"
@@ -326,10 +343,11 @@ async def query_doc(
         document_manager.chunk_size = query_request.chunk_size
         document_manager.chunk_overlap = query_request.chunk_overlap
         document_manager.num_chunks = query_request.num_chunks
+        document_manager.distance_metric = query_request.distance_metric
 
         # Reprocess document with new parameters
         logger.info("Reprocessing document with new parameters")
-        document_manager.reprocess_document(embedding_model)
+        document_manager.reprocess_document(embedding_model, query_request.distance_metric)
 
         # Choose retrieval method based on RAG mode
         if query_request.rag_mode.lower() == "self-rag":

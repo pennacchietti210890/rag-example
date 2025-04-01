@@ -41,40 +41,44 @@ class TestRAGFlow:
         self, mock_get_models, mock_generate_response, mock_api_responses, sample_pdf
     ):
         """Test the complete RAG flow from upload to query"""
-        # Setup mocks
-        mock_get_models.return_value = ["llama3-70b-8192"]
-        mock_generate_response.return_value = {
-            "answer": "The revenue was $10 million in Q1 2023."
+        # Create a test PDF file
+        with open(sample_pdf, "rb") as f:
+            pdf_content = f.read()
+
+        # Create a test file for upload
+        files = {"file": ("test.pdf", pdf_content, "application/pdf")}
+        data = {
+            "chunk_size": "500", 
+            "chunk_overlap": "50", 
+            "num_chunks": "3",
+            "distance_metric": "l2"
         }
 
         # Step 1: Get encryption key
-        encryption_key_response = requests.get("http://testserver/encryption-key")
-        assert encryption_key_response.status_code == 200
-        encryption_key = encryption_key_response.json()["encryption_key"]
+        encryption_response = requests.get("http://testserver/encryption-key")
+        assert encryption_response.status_code == 200
+        assert "encryption_key" in encryption_response.json()
 
         # Step 2: Get available models
-        models_response = requests.get(
-            "http://testserver/models/?encrypted_api_key=test_encrypted_key"
-        )
+        mock_get_models.return_value = ["llama3-70b-8192", "mixtral-8x7b-32768"]
+        models_response = requests.get("http://testserver/models/")
         assert models_response.status_code == 200
-        assert len(models_response.json()["models"]) > 0
-        model_name = models_response.json()["models"][0]
+        assert "models" in models_response.json()
+        assert "llama3-70b-8192" in models_response.json()["models"]
 
-        # Step 3: Upload a document
-        with open(sample_pdf, "rb") as f:
-            files = {"file": ("test.pdf", f, "application/pdf")}
-            data = {"chunk_size": "500", "chunk_overlap": "50", "num_chunks": "3"}
-            upload_response = requests.post(
-                "http://testserver/upload/", files=files, data=data
-            )
-
+        # Step 3: Upload document
+        upload_response = requests.post("http://testserver/upload/", files=files, data=data)
         assert upload_response.status_code == 200
+        assert "session_id" in upload_response.json()
         session_id = upload_response.json()["session_id"]
 
         # Step 4: Query the document
+        mock_generate_response.return_value = {
+            "answer": "The revenue was $10 million in Q1 2023."
+        }
         query_data = {
-            "query": "What was the revenue?",
-            "model_name": model_name,
+            "query": "What was the revenue in Q1?",
+            "model_name": "llama3-70b-8192",
             "encrypted_api_key": "test_encrypted_key",
             "session_id": session_id,
             "temperature": 0.7,
@@ -83,6 +87,9 @@ class TestRAGFlow:
             "chunk_size": 500,
             "chunk_overlap": 50,
             "num_chunks": 3,
+            "rag_enabled": True,
+            "rag_mode": "rag",
+            "distance_metric": "l2"
         }
 
         query_response = requests.post("http://testserver/query/", json=query_data)

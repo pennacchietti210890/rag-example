@@ -412,6 +412,7 @@ if "passage_page_map" not in st.session_state:
 chunk_size = 500
 chunk_overlap = 50
 num_chunks = 3
+distance_metric = "l2"  # Default to L2 distance
 
 
 def fetch_available_models(api_key: str = None):
@@ -470,6 +471,7 @@ with st.sidebar:
                     "chunk_size": chunk_size,
                     "chunk_overlap": chunk_overlap,
                     "num_chunks": num_chunks,
+                    "distance_metric": distance_metric,
                 }
                 response = requests.post(
                     f"{BACKEND_URL}/upload/",
@@ -587,11 +589,31 @@ with st.sidebar:
                 step=1,
                 help="Number of most relevant chunks to retrieve. More chunks provide broader context but may include less relevant information.",
             )
+            
+            # Add distance metric selection dropdown
+            distance_metric = st.selectbox(
+                "Distance Metric",
+                options=[
+                    "l2",  # Euclidean distance (L2)
+                    "ip",  # Inner product (Dot product)
+                    "cosine",  # Cosine similarity
+                    "hamming",  # Hamming distance
+                ],
+                index=0,  # Default to L2
+                format_func=lambda x: {
+                    "l2": "L2 Distance (Euclidean)",
+                    "ip": "Dot Product",
+                    "cosine": "Cosine Similarity",
+                    "hamming": "Hamming Distance"
+                }.get(x, x),
+                help="Distance metric used for similarity search: L2 (Euclidean) measures direct distance between vectors, Dot Product measures vector alignment, Cosine Similarity measures angle between vectors (normalized), and Hamming Distance measures binary differences."
+            )
     else:
         # Set default values when RAG is disabled
         chunk_size = 500
         chunk_overlap = 50
         num_chunks = 3
+        distance_metric = "l2"  # Default distance metric
 
     st.markdown(
         '<div class="pdf-note">🔍 Ensure that the uploaded document is a pdf file.</div>',
@@ -656,6 +678,7 @@ with main_col:
                             "chunk_size": chunk_size,
                             "chunk_overlap": chunk_overlap,
                             "num_chunks": num_chunks,
+                            "distance_metric": distance_metric,
                         },
                     )
 

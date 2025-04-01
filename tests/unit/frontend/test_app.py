@@ -188,6 +188,7 @@ class TestStreamlitApp:
 
         # Mock for the slider widgets inside the expander
         mock_streamlit.sidebar.slider.return_value = 500  # Default values
+        mock_streamlit.sidebar.selectbox.return_value = "l2"  # Default distance metric
 
         # Test with No RAG selected
         mock_streamlit.sidebar.radio.return_value = "No RAG"
@@ -215,12 +216,14 @@ class TestStreamlitApp:
                 chunk_size = mock_streamlit.sidebar.slider("Chunk Size")
                 chunk_overlap = mock_streamlit.sidebar.slider("Chunk Overlap")
                 num_chunks = mock_streamlit.sidebar.slider("Number of Chunks")
+                distance_metric = mock_streamlit.sidebar.selectbox("Distance Metric")
 
         # Verify that the slider was called for chunk size, overlap, and number of chunks
         assert mock_streamlit.sidebar.slider.call_count >= 3
 
         # Reset mock for testing Self-RAG
         mock_streamlit.sidebar.slider.reset_mock()
+        mock_streamlit.sidebar.selectbox.reset_mock()
 
         # Test with Self-RAG selected
         mock_streamlit.sidebar.radio.return_value = "Self-RAG"
@@ -238,6 +241,9 @@ class TestStreamlitApp:
                 chunk_size = mock_streamlit.sidebar.slider("Chunk Size")
                 chunk_overlap = mock_streamlit.sidebar.slider("Chunk Overlap")
                 num_chunks = mock_streamlit.sidebar.slider("Number of Chunks")
+                distance_metric = mock_streamlit.sidebar.selectbox("Distance Metric")
 
         # Verify that the slider was called for chunk size, overlap, and number of chunks
         assert mock_streamlit.sidebar.slider.call_count >= 3
+        # Verify that the selectbox was called for distance metric
+        assert mock_streamlit.sidebar.selectbox.call_count >= 1
