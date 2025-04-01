@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 
 
 def self_rag_workflow() -> StateGraph:
-# Initialize workflow
+    # Initialize workflow
     workflow = StateGraph(GraphState)
 
     # Define the nodes
     workflow.add_node("grade_documents", grade_documents)  # grade documents
     workflow.add_node("generate", generate)  # generatae
     workflow.add_node("transform_query", transform_query)  # transform_query
-    
+
     # Build graph
     workflow.add_edge(START, "grade_documents")
     workflow.add_conditional_edges(

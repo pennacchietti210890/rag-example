@@ -135,7 +135,7 @@ class QueryRequest(BaseModel):
                 "chunk_overlap": 50,
                 "num_chunks": 3,
                 "rag_enabled": True,
-                "rag_mode": "rag"
+                "rag_mode": "rag",
             }
         }
 
@@ -304,7 +304,9 @@ async def query_doc(
     logger.info(
         f"RAG parameters - chunk_size: {query_request.chunk_size}, chunk_overlap: {query_request.chunk_overlap}, num_chunks: {query_request.num_chunks}"
     )
-    logger.info(f"RAG mode: {query_request.rag_mode}, RAG enabled: {query_request.rag_enabled}")
+    logger.info(
+        f"RAG mode: {query_request.rag_mode}, RAG enabled: {query_request.rag_enabled}"
+    )
 
     if not document_manager.is_initialized:
         logger.warning("Query attempted before document upload")
@@ -334,16 +336,23 @@ async def query_doc(
             logger.info("Using Self-RAG retrieval mode")
             # Self-RAG returns both the final answer and the retrieved chunks
             llm_response, retrieved_chunks = document_manager.search_chunks_self_rag(
-                query_request.query, embedding_model, num_chunks=query_request.num_chunks, model_name=query_request.model_name, api_key=decrypted_api_key
+                query_request.query,
+                embedding_model,
+                num_chunks=query_request.num_chunks,
+                model_name=query_request.model_name,
+                api_key=decrypted_api_key,
             )
-            
+
             if not retrieved_chunks:
                 logger.warning("No relevant chunks found for Self-RAG query")
                 raise DocumentProcessingError("No relevant chunks found for the query")
-            
+
             prompt_sections = [
                 "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise",
-                *[f"Passage {i+1}:\n{chunk}\n" for i, chunk in enumerate(retrieved_chunks)],
+                *[
+                    f"Passage {i+1}:\n{chunk}\n"
+                    for i, chunk in enumerate(retrieved_chunks)
+                ],
                 f"\n\nUser Question: {query_request.query}\n\nAnswer:",
             ]
             # For Self-RAG, we'll use the LLM response directly
@@ -356,7 +365,9 @@ async def query_doc(
             logger.info("Using standard RAG retrieval mode")
             # Standard RAG mode
             retrieved_chunks = document_manager.search_chunks(
-                query_request.query, embedding_model, num_chunks=query_request.num_chunks
+                query_request.query,
+                embedding_model,
+                num_chunks=query_request.num_chunks,
             )
 
             if not retrieved_chunks:
@@ -383,7 +394,10 @@ async def query_doc(
             prompt = f"You are given a document and a question. You need to answer the question based on the document. Only provide the answer in your response and nothing else. Below is the data you need.\n\nDocument Context:\n{context}\n\nUser Question: {query_request.query}\n\nAnswer:"
 
         # For standard RAG, generate response using decrypted API key
-        if query_request.rag_mode.lower() != "self-rag" or not query_request.rag_enabled:
+        if (
+            query_request.rag_mode.lower() != "self-rag"
+            or not query_request.rag_enabled
+        ):
             response = generate_response(
                 prompt=prompt,
                 groq_api_key=decrypted_api_key,

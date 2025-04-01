@@ -118,7 +118,13 @@ class DocumentManager:
         workflow = self_rag_workflow()
         rag_prompt = hub.pull("rlm/rag-prompt")
         graph_response = workflow.invoke(
-            {"question": query, "documents": initial_documents, "model_name": model_name, "api_key": api_key, "prompt": rag_prompt}
+            {
+                "question": query,
+                "documents": initial_documents,
+                "model_name": model_name,
+                "api_key": api_key,
+                "prompt": rag_prompt,
+            }
         )
         return graph_response["generation"], graph_response["documents"]
 

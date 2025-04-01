@@ -31,6 +31,7 @@ class GradeHallucinations(BaseModel):
         ..., description="Answer is grounded in the facts, 'yes' or 'no'."
     )
 
+
 class GradeAnswer(BaseModel):
     """Binary score to assess answer addresses question."""
 
@@ -39,9 +40,10 @@ class GradeAnswer(BaseModel):
     )
 
 
-def create_graders(llm: BaseChatModel, grader_name: str) -> Tuple[Callable, Callable, Callable]:
+def create_graders(
+    llm: BaseChatModel, grader_name: str
+) -> Tuple[Callable, Callable, Callable]:
     """Create graders for relevance, hallucinations, and answer."""
-
 
     grader_system_prompt = """You are a grader assessing relevance of a retrieved document to a user question. \n 
         It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n
@@ -51,7 +53,10 @@ def create_graders(llm: BaseChatModel, grader_name: str) -> Tuple[Callable, Call
     grade_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", grader_system_prompt),
-            ("human", "Retrieved document: \n\n {document} \n\n User question: {question}"),
+            (
+                "human",
+                "Retrieved document: \n\n {document} \n\n User question: {question}",
+            ),
         ]
     )
 
@@ -61,15 +66,19 @@ def create_graders(llm: BaseChatModel, grader_name: str) -> Tuple[Callable, Call
     hallucinations_system_prompt = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n 
         Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
 
-
     hallucination_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", hallucinations_system_prompt),
-            ("human", "Set of facts: \n\n {documents} \n\n LLM generation: {generation}"),
+            (
+                "human",
+                "Set of facts: \n\n {documents} \n\n LLM generation: {generation}",
+            ),
         ]
     )
 
-    structured_llm_hallucination_grader = llm.with_structured_output(GradeHallucinations)
+    structured_llm_hallucination_grader = llm.with_structured_output(
+        GradeHallucinations
+    )
     hallucination_grader = hallucination_prompt | structured_llm_hallucination_grader
 
     relevance_system_prompt = """You are a grader assessing whether an answer addresses / resolves a question \n 
@@ -81,18 +90,20 @@ def create_graders(llm: BaseChatModel, grader_name: str) -> Tuple[Callable, Call
     answer_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system),
-            ("human", "User question: \n\n {question} \n\n LLM generation: {generation}"),
+            (
+                "human",
+                "User question: \n\n {question} \n\n LLM generation: {generation}",
+            ),
         ]
     )
 
     structured_llm_answer_grader = llm.with_structured_output(GradeAnswer)
     answer_grader = answer_prompt | structured_llm_answer_grader
 
-
     system = """You a question re-writer that converts an input question to a better version that is optimized \n 
         for vectorstore retrieval. Look at the input and try to reason about the underlying semantic intent / meaning.
         Return only one question."""
-    
+
     re_write_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", system),
@@ -110,7 +121,7 @@ def create_graders(llm: BaseChatModel, grader_name: str) -> Tuple[Callable, Call
     elif grader_name == "hallucination":
         return hallucination_grader
     elif grader_name == "answer":
-        return answer_grader    
+        return answer_grader
     elif grader_name == "question_rewriter":
         return question_rewriter
     else:

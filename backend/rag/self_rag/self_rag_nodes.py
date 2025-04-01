@@ -48,7 +48,7 @@ def generate(state):
     question = state["question"]
     documents = state["documents"]
 
-    prompt = state["prompt"]   # RAG generation
+    prompt = state["prompt"]  # RAG generation
     llm = ChatGroq(model=state["model_name"], api_key=state["api_key"])
     rag_chain = prompt | llm | StrOutputParser()
 
@@ -76,9 +76,7 @@ def grade_documents(state):
     # Score each doc
     filtered_docs = []
     for d in documents:
-        score = retrieval_grader.invoke(
-            {"question": question, "document": d}
-        )
+        score = retrieval_grader.invoke({"question": question, "document": d})
         grade = score.binary_score
         if grade == "yes":
             logger.info("---GRADE: DOCUMENT RELEVANT---")
