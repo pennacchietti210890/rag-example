@@ -33,7 +33,7 @@ resource "aws_ecs_task_definition" "backend" {
   container_definitions = jsonencode([
     {
       name      = "backend"
-      image     = "640168414029.dkr.ecr.eu-north-1.amazonaws.com/backend/rag_example:latest" # replace if needed
+      image     = "640168414029.dkr.ecr.eu-north-1.amazonaws.com/backend/rag_example:v2" # replace if needed
       portMappings = [
         {
           containerPort = 8000
@@ -89,7 +89,7 @@ resource "aws_ecs_service" "backend" {
   desired_count   = 0
 
   network_configuration {
-    subnets         = var.private_subnets
+    subnets         = [var.private_subnets[0]]
     security_groups = [aws_security_group.backend_sg.id]
     assign_public_ip = false
   }
@@ -131,7 +131,7 @@ resource "aws_ecs_task_definition" "frontend" {
   container_definitions = jsonencode([
     {
       name      = "frontend"
-      image     = "640168414029.dkr.ecr.eu-north-1.amazonaws.com/frontend/rag_example:latest" # Replace if needed
+      image     = "640168414029.dkr.ecr.eu-north-1.amazonaws.com/frontend/rag_example:v2" # Replace if needed
       portMappings = [
         {
           containerPort = 8501
@@ -165,7 +165,7 @@ resource "aws_security_group" "frontend_sg" {
     from_port   = 8501
     to_port     = 8501
     protocol    = "tcp"
-    cidr_blocks = ["101.57.38.236/32"] # Public access for now
+    security_groups  = [var.alb_sg_id]
   }
 
   egress {
@@ -174,6 +174,7 @@ resource "aws_security_group" "frontend_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
 }
 
 resource "aws_ecs_service" "frontend" {
@@ -184,8 +185,22 @@ resource "aws_ecs_service" "frontend" {
   desired_count   = 0
 
   network_configuration {
-    subnets         = var.public_subnets
+    subnets         = [var.private_subnets[0]]
     security_groups = [aws_security_group.frontend_sg.id]
-    assign_public_ip = true
+    assign_public_ip = false  # Because ALB handles exposure
+  }
+
+  load_balancer {
+    target_group_arn = var.frontend_tg_arn  # or aws_lb_target_group.frontend_tg.arn
+    container_name   = "frontend"
+    container_port   = 8501
+  }
+
+  depends_on = [
+    var.alb_listener_dependency
+  ]
+
+  lifecycle {
+  prevent_destroy = true
   }
 }

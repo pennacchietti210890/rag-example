@@ -484,7 +484,10 @@ async def get_encryption_key():
     """Get the encryption key for secure API key transmission"""
     return {"encryption_key": ENCRYPTION_KEY}
 
-
+@app.get("/healthz")
+def health_check():
+    return {"status": "ok"}
+    
 def main():
     """Entry point for running the FastAPI application"""
     logger.info("Starting FastAPI application")
