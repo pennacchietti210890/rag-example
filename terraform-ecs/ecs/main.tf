@@ -200,7 +200,4 @@ resource "aws_ecs_service" "frontend" {
     var.alb_listener_dependency
   ]
 
-  lifecycle {
-  prevent_destroy = true
-  }
 }
