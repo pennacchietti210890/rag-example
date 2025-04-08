@@ -4,8 +4,8 @@ A Retrieval-Augmented Generation (RAG) playground for analyzing pdf documents. U
 
 ## UI Preview
 
-![RAG Application UI Preview](images/rag_dashboard.png)
-![RAG Application UI Preview](images/rag_parameters.png)
+![RAG Application UI Preview](images/rag_ui.png)
+![RAG Application UI Preview](images/rag_para.png)
 
 ## Features
 
