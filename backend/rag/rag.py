@@ -25,11 +25,11 @@ class DocumentManager:
     """Manages document state and operations"""
 
     def __init__(
-        self, 
-        chunk_size: int = 500, 
-        chunk_overlap: int = 50, 
+        self,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
         num_chunks: int = 3,
-        distance_metric: DistanceMetric = "l2"
+        distance_metric: DistanceMetric = "l2",
     ):
         self._index: Optional[faiss.Index] = None
         self._chunks: List[str] = []
@@ -50,7 +50,7 @@ class DocumentManager:
     def chunks(self) -> List[str]:
         """Get the current chunks"""
         return self._chunks.copy()
-        
+
     def _create_faiss_index(self, embedding_dim: int) -> faiss.Index:
         """Create a FAISS index based on the selected distance metric"""
         if self.distance_metric == "l2":
@@ -65,15 +65,19 @@ class DocumentManager:
             return index
         elif self.distance_metric == "hamming":
             # Hamming distance (for binary vectors)
-            return faiss.IndexBinaryFlat(embedding_dim * 8)  # *8 because dimension is in bits for binary
+            return faiss.IndexBinaryFlat(
+                embedding_dim * 8
+            )  # *8 because dimension is in bits for binary
         else:
             # Default to L2 if unknown metric specified
-            logger.warning(f"Unknown distance metric '{self.distance_metric}', defaulting to L2")
+            logger.warning(
+                f"Unknown distance metric '{self.distance_metric}', defaulting to L2"
+            )
             return faiss.IndexFlatL2(embedding_dim)
 
     def process_document(
-        self, 
-        text: str, 
+        self,
+        text: str,
         embedding_model: SentenceTransformer,
         distance_metric: Optional[DistanceMetric] = None,
     ) -> Dict[str, int]:
@@ -83,7 +87,7 @@ class DocumentManager:
                 # Update distance metric if provided
                 if distance_metric:
                     self.distance_metric = distance_metric
-                    
+
                 # Store the original text
                 self._original_text = text
 
@@ -100,12 +104,12 @@ class DocumentManager:
 
                 # Initialize FAISS index based on distance metric
                 self._index = self._create_faiss_index(embeddings.shape[1])
-                
+
                 # Normalize vectors if using cosine similarity
                 if self.distance_metric == "cosine":
                     # Normalize vectors for cosine similarity
                     faiss.normalize_L2(embeddings)
-                
+
                 # Add embeddings to the index
                 if self.distance_metric == "hamming":
                     # For hamming, convert to binary
@@ -126,19 +130,21 @@ class DocumentManager:
                 raise e
 
     def reprocess_document(
-        self, 
+        self,
         embedding_model: SentenceTransformer,
         distance_metric: Optional[DistanceMetric] = None,
     ) -> Dict[str, int]:
         """Reprocess the document with current parameters"""
         if not self._original_text:
             raise DocumentProcessingError("No document to reprocess")
-            
+
         # Update distance metric if provided
         if distance_metric:
             self.distance_metric = distance_metric
-            
-        return self.process_document(self._original_text, embedding_model, self.distance_metric)
+
+        return self.process_document(
+            self._original_text, embedding_model, self.distance_metric
+        )
 
     def search_chunks(
         self,
@@ -153,14 +159,14 @@ class DocumentManager:
 
             # Use provided num_chunks or fall back to instance variable
             k = num_chunks if num_chunks is not None else self.num_chunks
-            
+
             # Get query embedding
             query_embedding = embedding_model.encode([query])
-            
+
             # Handle cosine similarity (normalize query vector)
             if self.distance_metric == "cosine":
                 faiss.normalize_L2(query_embedding)
-                
+
             # Handle hamming distance
             if self.distance_metric == "hamming":
                 # Convert to binary for hamming distance
@@ -169,7 +175,7 @@ class DocumentManager:
             else:
                 # Use normal search for other distance metrics
                 D, I = self._index.search(np.array(query_embedding), k=k)
-                
+
             return [self._chunks[i] for i in I[0]]
 
     def search_chunks_self_rag(

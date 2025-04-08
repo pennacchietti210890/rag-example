@@ -11,7 +11,9 @@ class TestDocumentManager:
     def test_initialization(self):
         """Test that the DocumentManager initializes correctly"""
         # When
-        manager = DocumentManager(chunk_size=200, chunk_overlap=50, num_chunks=3, distance_metric="l2")
+        manager = DocumentManager(
+            chunk_size=200, chunk_overlap=50, num_chunks=3, distance_metric="l2"
+        )
 
         # Then
         assert manager.chunk_size == 200
@@ -27,8 +29,10 @@ class TestDocumentManager:
         # When
         metrics = ["l2", "ip", "cosine", "hamming"]
         for metric in metrics:
-            manager = DocumentManager(chunk_size=200, chunk_overlap=50, num_chunks=3, distance_metric=metric)
-            
+            manager = DocumentManager(
+                chunk_size=200, chunk_overlap=50, num_chunks=3, distance_metric=metric
+            )
+
             # Then
             assert manager.distance_metric == metric
 
@@ -53,7 +57,9 @@ class TestDocumentManager:
     ):
         """Test processing a document with a specific distance metric"""
         # When
-        result = document_manager.process_document(sample_text, mock_embedding_model, "ip")
+        result = document_manager.process_document(
+            sample_text, mock_embedding_model, "ip"
+        )
 
         # Then
         assert document_manager.is_initialized is True
@@ -196,13 +202,20 @@ class TestDocumentManager:
         index = document_manager._create_faiss_index(embedding_dim)
 
         # Then
-        mock_index_binary_flat.assert_called_once_with(embedding_dim * 8)  # *8 because dimension is in bits for binary
+        mock_index_binary_flat.assert_called_once_with(
+            embedding_dim * 8
+        )  # *8 because dimension is in bits for binary
         assert index == mock_index
 
     @patch("faiss.normalize_L2")
     @patch("faiss.IndexFlatIP")
     def test_process_document_normalizes_for_cosine(
-        self, mock_index_flat_ip, mock_normalize, document_manager, sample_text, mock_embedding_model
+        self,
+        mock_index_flat_ip,
+        mock_normalize,
+        document_manager,
+        sample_text,
+        mock_embedding_model,
     ):
         """Test that vectors are normalized when using cosine similarity"""
         # Setup

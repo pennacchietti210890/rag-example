@@ -79,10 +79,10 @@ class TestAPIEndpoints:
         # When
         files = {"file": ("test.pdf", test_file, "application/pdf")}
         data = {
-            "chunk_size": "500", 
-            "chunk_overlap": "50", 
+            "chunk_size": "500",
+            "chunk_overlap": "50",
             "num_chunks": "3",
-            "distance_metric": "l2"
+            "distance_metric": "l2",
         }
         response = requests.post("http://testserver/upload/", files=files, data=data)
 
@@ -111,7 +111,7 @@ class TestAPIEndpoints:
             "num_chunks": 3,
             "rag_enabled": True,
             "rag_mode": "rag",
-            "distance_metric": "l2"
+            "distance_metric": "l2",
         }
 
         # Mock the document manager dependency

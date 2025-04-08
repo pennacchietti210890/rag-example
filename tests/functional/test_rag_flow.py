@@ -48,10 +48,10 @@ class TestRAGFlow:
         # Create a test file for upload
         files = {"file": ("test.pdf", pdf_content, "application/pdf")}
         data = {
-            "chunk_size": "500", 
-            "chunk_overlap": "50", 
+            "chunk_size": "500",
+            "chunk_overlap": "50",
             "num_chunks": "3",
-            "distance_metric": "l2"
+            "distance_metric": "l2",
         }
 
         # Step 1: Get encryption key
@@ -67,7 +67,9 @@ class TestRAGFlow:
         assert "llama3-70b-8192" in models_response.json()["models"]
 
         # Step 3: Upload document
-        upload_response = requests.post("http://testserver/upload/", files=files, data=data)
+        upload_response = requests.post(
+            "http://testserver/upload/", files=files, data=data
+        )
         assert upload_response.status_code == 200
         assert "session_id" in upload_response.json()
         session_id = upload_response.json()["session_id"]
@@ -89,7 +91,7 @@ class TestRAGFlow:
             "num_chunks": 3,
             "rag_enabled": True,
             "rag_mode": "rag",
-            "distance_metric": "l2"
+            "distance_metric": "l2",
         }
 
         query_response = requests.post("http://testserver/query/", json=query_data)

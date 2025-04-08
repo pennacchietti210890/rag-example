@@ -589,7 +589,7 @@ with st.sidebar:
                 step=1,
                 help="Number of most relevant chunks to retrieve. More chunks provide broader context but may include less relevant information.",
             )
-            
+
             # Add distance metric selection dropdown
             distance_metric = st.selectbox(
                 "Distance Metric",
@@ -604,9 +604,9 @@ with st.sidebar:
                     "l2": "L2 Distance (Euclidean)",
                     "ip": "Dot Product",
                     "cosine": "Cosine Similarity",
-                    "hamming": "Hamming Distance"
+                    "hamming": "Hamming Distance",
                 }.get(x, x),
-                help="Distance metric used for similarity search: L2 (Euclidean) measures direct distance between vectors, Dot Product measures vector alignment, Cosine Similarity measures angle between vectors (normalized), and Hamming Distance measures binary differences."
+                help="Distance metric used for similarity search: L2 (Euclidean) measures direct distance between vectors, Dot Product measures vector alignment, Cosine Similarity measures angle between vectors (normalized), and Hamming Distance measures binary differences.",
             )
     else:
         # Set default values when RAG is disabled

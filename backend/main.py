@@ -122,8 +122,8 @@ class QueryRequest(BaseModel):
     rag_mode: str = Field(default="rag", description="RAG mode: 'rag' or 'self-rag'")
     # Distance metric for FAISS index
     distance_metric: DistanceMetric = Field(
-        default="l2", 
-        description="Distance metric for FAISS index: 'l2' (Euclidean), 'ip' (Dot Product), 'cosine' (Cosine Similarity), or 'hamming' (Hamming Distance)"
+        default="l2",
+        description="Distance metric for FAISS index: 'l2' (Euclidean), 'ip' (Dot Product), 'cosine' (Cosine Similarity), or 'hamming' (Hamming Distance)",
     )
 
     class Config:
@@ -141,7 +141,7 @@ class QueryRequest(BaseModel):
                 "num_chunks": 3,
                 "rag_enabled": True,
                 "rag_mode": "rag",
-                "distance_metric": "l2"
+                "distance_metric": "l2",
             }
         }
 
@@ -275,10 +275,14 @@ async def upload_file(
         # Process or reprocess document using document manager
         if document_manager.is_initialized:
             logger.info("Reprocessing document with new parameters")
-            result = document_manager.reprocess_document(embedding_model, distance_metric)
+            result = document_manager.reprocess_document(
+                embedding_model, distance_metric
+            )
         else:
             logger.info("Processing new document")
-            result = document_manager.process_document(text, embedding_model, distance_metric)
+            result = document_manager.process_document(
+                text, embedding_model, distance_metric
+            )
 
         logger.info(f"Successfully processed file with {result['num_chunks']} chunks")
 
@@ -347,7 +351,9 @@ async def query_doc(
 
         # Reprocess document with new parameters
         logger.info("Reprocessing document with new parameters")
-        document_manager.reprocess_document(embedding_model, query_request.distance_metric)
+        document_manager.reprocess_document(
+            embedding_model, query_request.distance_metric
+        )
 
         # Choose retrieval method based on RAG mode
         if query_request.rag_mode.lower() == "self-rag":
@@ -484,10 +490,12 @@ async def get_encryption_key():
     """Get the encryption key for secure API key transmission"""
     return {"encryption_key": ENCRYPTION_KEY}
 
+
 @app.get("/healthz")
 def health_check():
     return {"status": "ok"}
-    
+
+
 def main():
     """Entry point for running the FastAPI application"""
     logger.info("Starting FastAPI application")

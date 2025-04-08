@@ -32,7 +32,9 @@ def sample_text():
 @pytest.fixture
 def document_manager():
     """Create a document manager for testing"""
-    return DocumentManager(chunk_size=100, chunk_overlap=20, num_chunks=2, distance_metric="l2")
+    return DocumentManager(
+        chunk_size=100, chunk_overlap=20, num_chunks=2, distance_metric="l2"
+    )
 
 
 @pytest.fixture
