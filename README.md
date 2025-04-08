@@ -1,16 +1,17 @@
 # RAG Example
 
-A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This system allows users to upload a pdf document and ask questions about their contents via open source LLMs available via Groq (the user needs a free API from Groq), showing you how setting up different LLM or RAG parameters influence what kind of context is retrieved for generation.
+A Retrieval-Augmented Generation (RAG) playground for analyzing pdf documents. Upload a pdf document, ask questions on its contents via open source LLMs available via Groq (the user needs a free API from Groq), see how different LLM or RAG parameters affect the final answer generation.
 
 ## UI Preview
 
-![RAG Application UI Preview](images/UI_preview.png)
+![RAG Application UI Preview](images/rag_dashboard.png)
+![RAG Application UI Preview](images/rag_parameters.png)
 
 ## Features
 
 - PDF document upload and processing
-- Document chunking and embedding generation
-- Advanced semantic search using FAISS with multiple distance metrics:
+- Document chunking via recursive text splitter and embedding generation
+- Semantic search using FAISS with multiple distance metrics:
   - L2 Distance (Euclidean)
   - Dot Product
   - Cosine Similarity
@@ -22,8 +23,6 @@ A Retrieval-Augmented Generation (RAG) system for analyzing pdf documents. This 
 - Session management for multiple documents
 - Thread-safe operations
 - Docker support for easy deployment
-- Secure API key handling with encryption
-- Comprehensive test suite (unit, integration, and functional tests)
 
 ## Installation
 
@@ -165,12 +164,6 @@ Self-RAG enhances the standard RAG pipeline with additional steps:
 - **Temperature**: Controls randomness (higher = more creative, lower = more deterministic).
 - **Top P**: Controls diversity via nucleus sampling.
 - **Max Tokens**: Maximum length of generated responses.
-
-## Security
-
-- User API keys are encrypted during transmission between frontend and backend
-- API keys are never stored persistently
-- Password field masks API key input
 
 ## License
 
